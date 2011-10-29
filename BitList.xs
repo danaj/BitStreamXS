@@ -24,7 +24,11 @@
 #define GET_CODE(codename) \
     bool wantarray = (GIMME_V == G_ARRAY); \
     if ( (list == 0) || (count == 0) || (list->pos >= list->len) ) \
-      wantarray  ?  XSRETURN_EMPTY  :  XSRETURN_UNDEF; \
+      if (wantarray) { XSRETURN_EMPTY; } else { XSRETURN_UNDEF; } \
+    if (list->is_writing) { \
+      croak("read while writing"); \
+      if (wantarray) { XSRETURN_EMPTY; } else { XSRETURN_UNDEF; } \
+    } \
     unsigned long v; \
     int c = 0; \
     if (count < 0)  count = MAX_COUNT; \
@@ -48,7 +52,11 @@
 #define GET_CODEP(codename, param) \
     bool wantarray = (GIMME_V == G_ARRAY); \
     if ( (list == 0) || (count == 0) || (list->pos >= list->len) ) \
-      wantarray  ?  XSRETURN_EMPTY  :  XSRETURN_UNDEF; \
+      if (wantarray) { XSRETURN_EMPTY; } else { XSRETURN_UNDEF; } \
+    if (list->is_writing) { \
+      croak("read while writing"); \
+      if (wantarray) { XSRETURN_EMPTY; } else { XSRETURN_UNDEF; } \
+    } \
     unsigned long v; \
     int c = 0; \
     if (count < 0)  count = MAX_COUNT; \
@@ -67,6 +75,24 @@
         if (++st_pos > st_size) { EXTEND(SP, BLSTGROW); st_size += BLSTGROW; } \
         PUSHs(sv_2mortal(newSVuv(  get_ ## codename(list, param)  ))); \
       } \
+    }
+
+#define PUT_CODE(codename) \
+    if (!list->is_writing) { \
+      croak("write while reading"); \
+    } else { \
+      int c; \
+      for (c = 1; c < items; c++) \
+        put_ ## codename(list, SvUV(ST(c))); \
+    }
+
+#define PUT_CODEP(codename, param) \
+    if (!list->is_writing) { \
+      croak("write while reading"); \
+    } else { \
+      int c; \
+      for (c = 2; c < items; c++) \
+        put_ ## codename(list, param, SvUV(ST(c))); \
     }
 
 typedef BitList *Data__BitStream__BitList;
@@ -121,10 +147,10 @@ pos(IN Data::BitStream::BitList list)
     RETVAL
 
 int
-setpos(IN Data::BitStream::BitList list, IN int n)
+set_pos(IN Data::BitStream::BitList list, IN int n)
 
 int
-setlen(IN Data::BitStream::BitList list, IN int n)
+set_len(IN Data::BitStream::BitList list, IN int n)
 
 bool
 writing(IN Data::BitStream::BitList list)
@@ -139,7 +165,7 @@ rewind(IN Data::BitStream::BitList list)
     if (list->is_writing)
       croak("rewind while writing");
     else
-      setpos(list, 0);
+      set_pos(list, 0);
 
 void
 skip(IN Data::BitStream::BitList list, IN int bits)
@@ -149,7 +175,7 @@ skip(IN Data::BitStream::BitList list, IN int bits)
     else if ((list->pos + bits) > list->len)
       croak("skip off stream");
     else
-      setpos(list, list->pos + bits);
+      set_pos(list, list->pos + bits);
 
 bool
 exhausted(IN Data::BitStream::BitList list)
@@ -177,27 +203,51 @@ write_close(IN Data::BitStream::BitList list)
 unsigned long
 read(IN Data::BitStream::BitList list, IN int bits)
   CODE:
+    if (list->is_writing) {
+      croak("read while writing");
+      XSRETURN_UNDEF;
+    }
+    if ( (bits <= 0) || (bits > BITS_PER_WORD) ) {
+      croak("invalid bits: %d", bits);
+      XSRETURN_UNDEF;
+    }
     int pos = list->pos;
     int len = list->len;
     if ( (pos >= len) || ((pos+bits) > len) )
       XSRETURN_UNDEF;
-    else
-      RETVAL = vread(list, bits);
+    RETVAL = sread(list, bits);
   OUTPUT:
     RETVAL
 
 unsigned long
 readahead(IN Data::BitStream::BitList list, IN int bits)
   CODE:
-    CHECKPOS;
-    RETVAL = vreadahead(list, bits);
+    if (list->is_writing) {
+      croak("read while writing");
+      XSRETURN_UNDEF;
+    }
+    if ( (bits <= 0) || (bits > BITS_PER_WORD) ) {
+      croak("invalid bits: %d", bits);
+      XSRETURN_UNDEF;
+    }
+    if (list->pos >= list->len)
+      XSRETURN_UNDEF;
+    RETVAL = sreadahead(list, bits);
   OUTPUT:
     RETVAL
 
 void
 write(IN Data::BitStream::BitList list, IN int bits, IN unsigned long v)
   CODE:
-    vwrite(list, bits, v);
+    if (!list->is_writing) {
+      croak("write while reading");
+      XSRETURN_UNDEF;
+    }
+    if ( (bits <= 0) || (bits > BITS_PER_WORD) ) {
+      croak("invalid bits: %d", bits);
+      XSRETURN_UNDEF;
+    }
+    swrite(list, bits, v);
 
 void
 put_string(list, s)
@@ -227,9 +277,10 @@ to_raw(list)
     if (buf == 0) {
       XSRETURN_UNDEF;
     } else {
-      size_t bpw = 8 * sizeof(WTYPE);
-      size_t words = (list->len + (bpw-1)) / bpw;
-      size_t bytes = words * sizeof(WTYPE);
+      //size_t bpw = 8 * sizeof(WTYPE);
+      //size_t words = (list->len + (bpw-1)) / bpw;
+      //size_t bytes = words * sizeof(WTYPE);
+      size_t bytes = NBYTES(list->len);
       RETVAL = newSVpvn(buf, bytes);
       free(buf);
     }
@@ -255,9 +306,7 @@ void
 put_unary(list, ...)
 	Data::BitStream::BitList list
   CODE:
-    int c;
-    for (c = 1; c < items; c++)
-      put_unary(list, SvUV(ST(c)));
+    PUT_CODE(unary);
 
 void
 get_unary1(list, count = 1)
@@ -270,9 +319,7 @@ void
 put_unary1(list, ...)
 	Data::BitStream::BitList list
   CODE:
-    int c;
-    for (c = 1; c < items; c++)
-      put_unary1(list, SvUV(ST(c)));
+    PUT_CODE(unary1);
 
 void
 get_gamma(list, count = 1)
@@ -285,9 +332,7 @@ void
 put_gamma(list, ...)
 	Data::BitStream::BitList list
   CODE:
-    int c;
-    for (c = 1; c < items; c++)
-      put_gamma(list, SvUV(ST(c)));
+    PUT_CODE(gamma);
 
 void
 get_delta(list, count = 1)
@@ -300,9 +345,7 @@ void
 put_delta(list, ...)
 	Data::BitStream::BitList list
   CODE:
-    int c;
-    for (c = 1; c < items; c++)
-      put_delta(list, SvUV(ST(c)));
+    PUT_CODE(delta);
 
 void
 get_omega(list, count = 1)
@@ -315,9 +358,7 @@ void
 put_omega(list, ...)
 	Data::BitStream::BitList list
   CODE:
-    int c;
-    for (c = 1; c < items; c++)
-      put_omega(list, SvUV(ST(c)));
+    PUT_CODE(omega);
 
 void
 get_fib(list, count = 1)
@@ -330,9 +371,7 @@ void
 put_fib(list, ...)
 	Data::BitStream::BitList list
   CODE:
-    int c;
-    for (c = 1; c < items; c++)
-      put_fib(list, SvUV(ST(c)));
+    PUT_CODE(fib);
 
 void
 get_levenstein(list, count = 1)
@@ -345,9 +384,7 @@ void
 put_levenstein(list, ...)
 	Data::BitStream::BitList list
   CODE:
-    int c;
-    for (c = 1; c < items; c++)
-      put_levenstein(list, SvUV(ST(c)));
+    PUT_CODE(levenstein);
 
 void
 get_evenrodeh(list, count = 1)
@@ -360,9 +397,7 @@ void
 put_evenrodeh(list, ...)
 	Data::BitStream::BitList list
   CODE:
-    int c;
-    for (c = 1; c < items; c++)
-      put_evenrodeh(list, SvUV(ST(c)));
+    PUT_CODE(evenrodeh);
 
 void
 get_binword(list, k, count = 1)
@@ -383,11 +418,9 @@ put_binword(list, k, ...)
   CODE:
     if ( (k < 0) || (k > BITS_PER_WORD) ) {
       croak("invalid parameters: binword %d", k);
-    } else {
-      int c;
-      for (c = 2; c < items; c++)
-        put_binword(list, k, SvUV(ST(c)));
+      return;
     }
+    PUT_CODEP(binword, k);
 
 void
 get_baer(list, k, count = 1)
@@ -408,11 +441,9 @@ put_baer(list, k, ...)
   CODE:
     if ( (k < -32) || (k > 32) ) {
       croak("invalid parameters: baer %d", k);
-    } else {
-      int c;
-      for (c = 2; c < items; c++)
-        put_baer(list, k, SvUV(ST(c)));
+      return;
     }
+    PUT_CODEP(baer, k);
 
 void
 get_rice(list, k, count = 1)
@@ -433,11 +464,9 @@ put_rice(list, k, ...)
   CODE:
     if ( (k < 0) || (k > BITS_PER_WORD) ) {
       croak("invalid parameters: rice %d", k);
-    } else {
-      int c;
-      for (c = 2; c < items; c++)
-        put_rice(list, k, SvUV(ST(c)));
+      return;
     }
+    PUT_CODEP(rice, k);
 
 void
 get_gamma_rice(list, k, count = 1)
@@ -458,11 +487,9 @@ put_gamma_rice(list, k, ...)
   CODE:
     if ( (k < 0) || (k > BITS_PER_WORD) ) {
       croak("invalid parameters: gamma_rice %d", k);
-    } else {
-      int c;
-      for (c = 2; c < items; c++)
-        put_gamma_rice(list, k, SvUV(ST(c)));
+      return;
     }
+    PUT_CODEP(gamma_rice, k);
 
 void
 get_golomb(list, m, count = 1)
@@ -483,11 +510,9 @@ put_golomb(list, m, ...)
   CODE:
     if (m < 1UL) {
       croak("invalid parameters: golomb %d", m);
-    } else {
-      int c;
-      for (c = 2; c < items; c++)
-        put_golomb(list, m, SvUV(ST(c)));
+      return;
     }
+    PUT_CODEP(golomb, m);
 
 void
 get_gamma_golomb(list, m, count = 1)
@@ -508,11 +533,9 @@ put_gamma_golomb(list, m, ...)
   CODE:
     if (m < 1UL) {
       croak("invalid parameters: gamma_golomb %d", m);
-    } else {
-      int c;
-      for (c = 2; c < items; c++)
-        put_gamma_golomb(list, m, SvUV(ST(c)));
+      return;
     }
+    PUT_CODEP(gamma_golomb, m);
 
 void
 get_adaptive_gamma_rice(list, k, count=1)
@@ -539,10 +562,8 @@ put_adaptive_gamma_rice(list, k, ...)
   CODE:
     if ( (k < 0) || (k > BITS_PER_WORD) ) {
       croak("invalid parameters: adaptive_gamma_rice %d", k);
-    } else {
-      int c;
-      for (c = 2; c < items; c++)
-        put_adaptive_gamma_rice(list, &k, SvUV(ST(c)));
+      return;
     }
+    PUT_CODEP(adaptive_gamma_rice, &k);
   OUTPUT:
     k

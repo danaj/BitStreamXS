@@ -2,18 +2,15 @@
 use strict;
 use warnings;
 
-use Test::More;
+use Test::More  tests => 6;
+
 use Data::BitStream::BitList;
 my $v = Data::BitStream::BitList->new;
 
-is($v->len, 0);
-is($v->pos, 0);
-
 $v->put_unary(0 .. 257);
 
-#$v->dump();
+$v->rewind_for_read;
 
-$v->setpos(0);
 my $a;
 my @a;
 
@@ -33,5 +30,3 @@ is_deeply( [@a], [3,4,5], 'get_unary_array into array with count > 0');
 
 @a = $v->get_unary(-1);
 is_deeply( [@a], [6 .. 257], 'get_unary_array into array with count -1');
-
-done_testing;

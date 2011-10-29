@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 
-use Test::More;
+use Test::More  tests => 35;
 use Data::BitStream::BitList;
 
 
@@ -149,5 +149,3 @@ use Data::BitStream::BitList;
     ok($success, "correctly read sequence");
   }
 }
-
-done_testing();

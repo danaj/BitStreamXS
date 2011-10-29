@@ -2,17 +2,12 @@
 use strict;
 use warnings;
 
-use Test::More;
+use Test::More  tests => 1;
+
 use Data::BitStream::BitList;
 my $v = Data::BitStream::BitList->new;
 
-is($v->len, 0);
-is($v->pos, 0);
-
 $v->write(2, 3);
-#$v->dump();
-$v->setpos(0);
+$v->rewind_for_read;
 my $value = $v->read(2);
-is($value, 3);
-
-done_testing;
+is($value, 3, 'wrote 3 in 2 bits, read it back');

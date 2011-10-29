@@ -2,12 +2,10 @@
 use strict;
 use warnings;
 
-use Test::More;
+use Test::More  tests => 6;
+
 use Data::BitStream::BitList;
 my $v = Data::BitStream::BitList->new;
-
-is($v->len, 0);
-is($v->pos, 0);
 
 my $k;
 
@@ -19,23 +17,25 @@ $v->put_adaptive_gamma_rice($k, @a);
 my $endk = $k;
 isnt($endk, 0, "endk ($endk) isn't 0");
 
-$v->setpos(0);
+$v->rewind_for_read;
 $k = 0;
-#my @values = $v->get_adaptive_gamma_rice($k, $nitems);
-  my @values;
-  push @values, $v->get_adaptive_gamma_rice($k,2)  for (1 .. $nitems/2);
+my @values = $v->get_adaptive_gamma_rice($k, $nitems);
+#  my @values;
+#  push @values, $v->get_adaptive_gamma_rice($k,2)  for (1 .. $nitems/2);
 is($k, $endk, "endk ($endk) matches");
 is_deeply( [@values], \@a, "arice get array 0-257");
 
 # Now test one at a time.
 {
+  $v->erase_for_write;
+
   $k = 0;
   foreach my $n (0 .. 257) {
     $v->put_adaptive_gamma_rice($k, $n);
   }
   is($k, $endk, "endk ($endk) matches");
 
-  $v->setpos(0);
+  $v->rewind_for_read;
   $k = 0;
   my @values;
   foreach my $n (0 .. 257) {
@@ -44,5 +44,3 @@ is_deeply( [@values], \@a, "arice get array 0-257");
   is_deeply( \@values, \@a, "arice single get/put 0-257");
   is($k, $endk, "endk ($endk) matches");
 }
-
-done_testing;

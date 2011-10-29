@@ -2,22 +2,18 @@
 use strict;
 use warnings;
 
-use Test::More;
+use Test::More  tests => 8;
+
 use Data::BitStream::BitList;
 my $v = Data::BitStream::BitList->new;
-
-is($v->len, 0);
-is($v->pos, 0);
 
 foreach my $n (1 .. 8) {
   $v->write(16, 0x4225 | ($n << 12));
 }
-#$v->dump();
 
-$v->setpos(0);
+$v->rewind_for_read;
+
 foreach my $n (1 .. 8) {
   my $value = $v->read(16);
-  is($value, 0x4225 | ($n << 12));
+  is($value, 0x4225 | ($n << 12), "read 16 bits: $value");
 }
-
-done_testing;
