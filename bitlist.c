@@ -9,6 +9,8 @@ static int verbose = 0;
 #define MAXBIT        (BITS_PER_WORD-1)
 #define NWORDS(bits)  ( (bits+BITS_PER_WORD-1) / BITS_PER_WORD )
 
+#define BIT_STACK_SIZE 32
+
 static void expand_list(BitList *list, int len)
 {
   if ( len > list->maxlen )
@@ -30,6 +32,7 @@ static char* word_to_bin(WTYPE word)
 BitList *new(int bits)
 {
   BitList *list = (BitList *) malloc(sizeof (BitList));
+  assert(list != 0);
 
   list->len = 0;
   list->pos = 0;
@@ -44,6 +47,8 @@ BitList *new(int bits)
 
 int reserve_bits(BitList *list, int bits)
 {
+  // Always expand in units of words
+
   if (list->maxlen < bits) {
     if (verbose)
      fprintf(stderr, "DBV: expanding from %d to %d bits\n", list->maxlen, bits);
@@ -51,6 +56,7 @@ int reserve_bits(BitList *list, int bits)
     int newwords = NWORDS(bits);
 #if 0
     WTYPE* newdata = (WTYPE*) calloc(newwords, sizeof(WTYPE));
+    assert(newdata != 0);
     if (list->data != 0) {
       memcpy(newdata, list->data, oldwords * sizeof(WTYPE));
       free(list->data);
@@ -58,6 +64,7 @@ int reserve_bits(BitList *list, int bits)
     list->data = newdata;
 #else
     list->data = (WTYPE*) realloc(list->data, newwords * sizeof(WTYPE));
+    assert(list->data != 0);
     memset( list->data + oldwords,
             0,
             (newwords-oldwords)*sizeof(WTYPE) );
@@ -81,6 +88,7 @@ int resize(BitList *list, int bits)
     // shrink
     int words = NWORDS(bits);
     WTYPE* newdata = (WTYPE*) calloc(words, sizeof(WTYPE));
+    assert(newdata != 0);
     if (list->data != 0) {
       memcpy(newdata, list->data, words * sizeof(WTYPE));
       free(list->data);
@@ -130,7 +138,6 @@ WTYPE vread(BitList *list, int bits)
 {
   assert(bits > 0);
   assert(bits <= BITS_PER_WORD);
-  // TODO return undef if list->pos + bits > len;
 
   WTYPE v = vreadahead(list, bits);
   list->pos += bits;
@@ -145,7 +152,9 @@ WTYPE vreadahead(BitList *list, int bits)
   WTYPE v = 0;
   int pos = list->pos;
 
-  // Handle readahead possibility
+  // Readahead can read past the end of the data, and requires that we fill
+  // in with zeros.  We could force the data to always have BITS_PER_WORD of
+  // empty space, or we can shift things here.
   int shift = (pos+bits) - list->len;
 
   if (shift > 0) {
@@ -154,26 +163,21 @@ WTYPE vreadahead(BitList *list, int bits)
 
   int wpos = pos / BITS_PER_WORD;
   int bpos = pos % BITS_PER_WORD;
-  if (bpos <= (BITS_PER_WORD-bits)) {
-    v = (list->data[wpos] >> (BITS_PER_WORD-bpos-bits))
-        & (~0UL >> (BITS_PER_WORD-bits));
-    pos += bits;
+  int wlen = BITS_PER_WORD - bits;
+
+  if (bpos <= wlen) {
+    // Single word read
+    v = (list->data[wpos] >> (wlen-bpos)) & (~0UL >> wlen);
   } else {
-    // TODO make faster
-    while (bits > 0) {
-      wpos = pos / BITS_PER_WORD;
-      bpos = pos % BITS_PER_WORD;
-      WTYPE word = list->data[wpos];
-      WTYPE bit  = (word >> ( MAXBIT - bpos)) & 1;
-      v = (v << 1) | bit;
-      bits--;
-      pos++;
-      //fprintf(stderr, "  read %d from word %d bit %d\n",
-      //        bit, wpos, (BITS_PER_WORD-1) - bpos);
-    }
+    // Double word read
+    int bits1 = BITS_PER_WORD - bpos;
+    int bits2 = bits - bits1;
+    v =   ( (list->data[wpos+0] & (~0UL >> bpos)) << bits2 )
+        | ( list->data[wpos+1] >> (BITS_PER_WORD - bits2) );
   }
 
   // Don't change the actual position
+  // pos += bits;
 
   if (shift > 0) {
     v <<= shift;
@@ -193,10 +197,6 @@ void vwrite(BitList *list, int bits, WTYPE value)
     list->len += bits;
     return;
   }
-  if (value == 1) {
-    len += bits-1;
-    bits = 1;
-  }
 
   assert(bits > 0);
   assert(bits <= BITS_PER_WORD);
@@ -209,6 +209,7 @@ void vwrite(BitList *list, int bits, WTYPE value)
 
   //fprintf(stderr, "writing %d bits at len %d (%d)\n", bits, len, value);
 #if 0
+  // Simple write
   while (bits > 0) {
     int wpos = len / BITS_PER_WORD;
     int bpos = len % BITS_PER_WORD;
@@ -220,39 +221,91 @@ void vwrite(BitList *list, int bits, WTYPE value)
     bits--;
     len++;
   }
-#else
-  int wpos = len / BITS_PER_WORD;
-  int bpos = len % BITS_PER_WORD;
-  // Write into this word
-  if (bpos > 0) {
-    int endpos = ((bpos + bits) > BITS_PER_WORD) ? BITS_PER_WORD : bpos + bits;
-    int bits_to_write = endpos - bpos;
-    WTYPE v = value >> (bits - bits_to_write);
-    list->data[wpos] |= v << (BITS_PER_WORD - endpos);
-    len += bits_to_write;
-    bits -= bits_to_write;
-  }
-  // Write into the next word if needed
-  if (bits > 0) {
-    int wpos = len / BITS_PER_WORD;
-    WTYPE v = value & (~0UL >> (BITS_PER_WORD - bits));
-    list->data[wpos] |= v << (BITS_PER_WORD - bits);
-    len += bits;
-  }
+  list->len = len;
+  return;
 #endif
 
-  list->len = len;
+  if (value == 1) {   // Optimize value 1 for any bits
+    len += bits-1;
+    bits = 1;
+  }
+
+  int wpos = len / BITS_PER_WORD;
+  int bpos = len % BITS_PER_WORD;
+  int wlen = BITS_PER_WORD - bits;
+
+  if (bpos <= wlen) {
+    // Single word write
+    list->data[wpos] |= (value & (~0UL >> wlen)) << (wlen-bpos);
+  } else {
+    // Two word write
+    int first_bits = BITS_PER_WORD - bpos;
+    list->data[wpos++] |=  value >> (bits - first_bits);
+    int wlen = BITS_PER_WORD - (bits - first_bits);
+    list->data[wpos] |= (value & (~0UL >> wlen)) << (wlen-0);
+  }
+
+  list->len = len + bits;
 }
 
 void put_string(BitList *list, char* s)
 {
-  // TODO: better implementation
+  // Write words.  Reasonably fast.
+  WTYPE word = 0;
+  int bits = 0;
   while (*s != '\0') {
     assert( (*s == '0') || (*s == '1') );
-    vwrite(list, 1, *s != '0');
+    word = (word << 1) |  ((*s == '0') ? 0 : 1);
+    bits++;
+    if (bits == BITS_PER_WORD) {
+      vwrite(list, BITS_PER_WORD, word);
+      word = 0;
+      bits = 0;
+    }
     s++;
   }
+  if (bits > 0)
+    vwrite(list, bits, word);
 }
+
+char* read_string(BitList *list, int bits)
+{
+  int pos = list->pos;
+  if ((pos + bits) > list->len)
+    return 0;
+  char* buf = malloc(bits+1);
+  if (buf == 0)
+    return buf;
+  int b;
+  for (b = 0; b < bits; b++) {
+    int wpos = pos / BITS_PER_WORD;
+    int bpos = pos % BITS_PER_WORD;
+    if ( ((list->data[wpos] << bpos) & (1UL << MAXBIT)) == 0 )
+      buf[b] = '0';
+    else
+      buf[b] = '1';
+    pos++;
+  }
+  list->pos = pos;
+  buf[bits] = '\0';
+  return buf;
+}
+
+char* to_raw(BitList *list)
+{
+  int bits = list->len;
+  int bytes = NWORDS(bits) * sizeof(WTYPE);
+  char* buf = (char*) malloc(bytes);
+  if (buf != 0) {
+    memcpy(buf, list->data, bytes);
+  }
+  return buf;
+}
+void from_raw(BitList *list, char* s, int bits)
+{
+}
+
+
 
 /*******************************************************************************
  *
@@ -314,14 +367,25 @@ WTYPE get_unary1 (BitList *list)
   int pos = list->pos;
   WTYPE word;
 
-  // Very inefficient code
-  while (1) {
-    int wpos = pos / BITS_PER_WORD;
-    int bpos = pos % BITS_PER_WORD;
+  // First word
+  int wpos = pos / BITS_PER_WORD;
+  int bpos = pos % BITS_PER_WORD;
+  if (bpos == 0)
     word = list->data[wpos];
-    if ( (word & (1UL << (MAXBIT-bpos))) == 0UL )
-      break;
+  else
+    word = (list->data[wpos] << bpos) | (~0UL >> (BITS_PER_WORD - bpos));
+
+  if (word == ~0UL) {
+    pos += (BITS_PER_WORD - bpos);
+    while ( list->data[ pos / BITS_PER_WORD ] == ~0UL )
+       pos += BITS_PER_WORD;
+    word = list->data[ pos / BITS_PER_WORD ];
+  }
+  assert(word != ~0UL);
+
+  while ( (word & (1UL << MAXBIT)) != 0UL ) {
     pos++;
+    word <<= 1;
   }
 
   WTYPE v = pos - list->pos;
@@ -331,6 +395,8 @@ WTYPE get_unary1 (BitList *list)
 
 void put_unary1 (BitList *list, WTYPE value)
 {
+#if 0
+  // Simple code
   while (value > BITS_PER_WORD) {
     vwrite(list, BITS_PER_WORD, ~0UL);
     value -= BITS_PER_WORD;
@@ -338,6 +404,29 @@ void put_unary1 (BitList *list, WTYPE value)
   if (value > 0)
     vwrite(list, value, ~0UL);
   vwrite(list, 1, 0UL);
+#else
+  int len = list->len;
+  int bits = value+1;
+
+  expand_list(list, len+value+1);
+
+  int wpos = len / BITS_PER_WORD;
+  int bpos = len % BITS_PER_WORD;
+  int first_bits = BITS_PER_WORD - bpos;
+  if ( (bpos > 0) && (first_bits <= value) ) {
+    list->data[wpos++] |= (~0UL >> bpos);
+    bpos = 0;
+    value -= first_bits;
+  }
+  while (value > BITS_PER_WORD) {
+    list->data[wpos++] = ~0UL;
+    value -= BITS_PER_WORD;
+  }
+  if (value > 0)
+    list->data[wpos] |= ( (~0UL << (BITS_PER_WORD-value)) >> bpos);
+
+  list->len = len + bits;
+#endif
 }
 
 WTYPE get_gamma (BitList *list)
@@ -413,15 +502,14 @@ WTYPE get_omega (BitList *list)
   return (v == 0UL) ? ~0UL : v-1UL;
 }
 
-#define OMEGA_STACK_SIZE 32
 void put_omega (BitList *list, WTYPE value)
 {
   // TODO: How to encode ~0UL ?
   value += 1UL;
 
   int sp = 0;
-  int   stack_b[OMEGA_STACK_SIZE];
-  WTYPE stack_v[OMEGA_STACK_SIZE];
+  int   stack_b[BIT_STACK_SIZE];
+  WTYPE stack_v[BIT_STACK_SIZE];
 
   { stack_b[sp] = 1; stack_v[sp] = 0; sp++; }
 
@@ -430,7 +518,7 @@ void put_omega (BitList *list, WTYPE value)
     int base = 0;
     while ( (v >>= 1) != 0)
       base++;
-    assert(sp < OMEGA_STACK_SIZE);
+    assert(sp < BIT_STACK_SIZE);
     { stack_b[sp] = base+1; stack_v[sp] = value; sp++; }
     value = base;
   }
@@ -507,5 +595,94 @@ void put_fib (BitList *list, WTYPE value)
     sp--;
     vwrite(list, stack_b[sp], stack_v[sp]);
   }
+}
+
+WTYPE get_levenstein (BitList *list)
+{
+  WTYPE C = get_unary1(list);
+  WTYPE v = 0;
+  if (C > 0) {
+    v = 1;
+    int i;
+    for (i = 1; i < C; i++) {
+      v = (1UL << v) | vread(list, v);
+    }
+  }
+  return(v);
+}
+
+void put_levenstein (BitList *list, WTYPE value)
+{
+  if (value == 0UL) {
+    vwrite(list, 1, 0);
+    return;
+  }
+
+  int sp = 0;
+  int   stack_b[BIT_STACK_SIZE];
+  WTYPE stack_v[BIT_STACK_SIZE];
+
+  while (1) {
+    WTYPE v = value;
+    int base = 0;
+    while ( (v >>= 1) != 0)
+      base++;
+    if (base == 0)
+      break;
+    assert(sp < BIT_STACK_SIZE);
+    { stack_b[sp] = base; stack_v[sp] = value; sp++; }
+    value = base;
+  }
+
+  put_unary1(list, sp+1);
+
+  while (sp > 0) {
+    sp--;
+    vwrite(list, stack_b[sp], stack_v[sp]);
+  }
+}
+
+#define QLOW  0
+#define QHIGH 7
+WTYPE get_adaptive_gamma_rice (BitList *list, int *kp)
+{
+  assert( (list != 0) && (kp != 0) );
+  int k = *kp;
+  if (k < 0) k = 0;
+  if (k > BITS_PER_WORD) k = BITS_PER_WORD;
+
+  WTYPE v;
+  WTYPE q = get_gamma(list);
+  if (k == 0) {
+    v = q;
+  } else {
+    v = (q << k) | vread(list, k);
+  }
+  if ( (q <= QLOW ) && (k > 0            ) )  k--;
+  if ( (q >= QHIGH) && (k < BITS_PER_WORD) )  k++;
+  *kp = k;
+  return v;
+}
+void put_adaptive_gamma_rice (BitList *list, int *kp, WTYPE value)
+{
+  assert( (list != 0) && (kp != 0) );
+  int k = *kp;
+  if (k < 0) k = 0;
+  if (k > BITS_PER_WORD) k = BITS_PER_WORD;
+
+  if ( (value == 0) && (k == 0) ) {
+    vwrite(list, 1, 1);
+    return;
+  }
+
+  WTYPE q = value >> k;
+  put_gamma(list, q);
+  if (k > 0) {
+    WTYPE r = value - (q << k);
+    vwrite(list, k, r);
+  }
+  if ( (q <= QLOW ) && (k > 0            ) )  k--;
+  if ( (q >= QHIGH) && (k < BITS_PER_WORD) )  k++;
+  *kp = k;
 }
 

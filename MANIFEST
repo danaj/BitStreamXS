@@ -12,8 +12,11 @@ t/05-rw.t
 t/06-unary.t
 t/07-gamma.t
 t/08-string1.t
+t/08-string2.t
 t/09-unary1.t
 t/10-delta.t
 t/11-omega.t
 t/12-fib.t
+t/13-lev.t
+t/14-arice.t
 typemap

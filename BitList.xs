@@ -60,40 +60,78 @@ setlen(list, n)
 	Data::BitStream::BitList list
 	int	 n
 
+
+
 unsigned long
-vread(list, n)
+vread(list, bits)
 	Data::BitStream::BitList list
-	int	 n
+	int bits
   CODE:
-    if (getpos(list) >= getlen(list))
+    int pos = getpos(list);
+    int len = getlen(list);
+    if ( (pos >= len) || ((pos+bits) > len) )
       XSRETURN_UNDEF;
     else
-      RETVAL = vread(list,n);
+      RETVAL = vread(list, bits);
   OUTPUT:
     RETVAL
 
 unsigned long
-vreadahead(list, n)
+vreadahead(list, bits)
 	Data::BitStream::BitList list
-	int	 n
+	int bits
   CODE:
     if (getpos(list) >= getlen(list))
       XSRETURN_UNDEF;
     else
-      RETVAL = vreadahead(list,n);
+      RETVAL = vreadahead(list, bits);
   OUTPUT:
     RETVAL
 
 void
-vwrite(list, n, v)
+vwrite(list, bits, v)
 	Data::BitStream::BitList list
-	int	 n
-	unsigned long	 v
+	int bits
+	unsigned long v
 
 void
 put_string(list, s)
 	Data::BitStream::BitList list
 	char* s
+
+SV *
+read_string(list, bits)
+	Data::BitStream::BitList list
+	int bits
+  CODE:
+    char* buf = read_string(list, bits);
+    if (buf == 0) {
+      XSRETURN_UNDEF;
+    } else {
+      //RETVAL = newSVpvn(buf, bits);
+      RETVAL = newSVpv(buf, 0);
+      free(buf);
+    }
+  OUTPUT:
+    RETVAL
+
+SV*
+to_raw(list)
+	Data::BitStream::BitList list
+  CODE:
+    char* buf = to_raw(list);
+    if (buf == 0) {
+      XSRETURN_UNDEF;
+    } else {
+      int bpw = 8 * sizeof(WTYPE);
+      int words = (getlen(list) + (bpw-1)) / bpw;
+      int bytes = words * sizeof(WTYPE);
+      RETVAL = newSVpvn(buf, bytes);
+      free(buf);
+    }
+  OUTPUT:
+    RETVAL
+
 
 
 
@@ -193,3 +231,39 @@ put_fib(list, v)
 	Data::BitStream::BitList list
 	unsigned long	 v
 
+unsigned long
+get_levenstein(list)
+	Data::BitStream::BitList list
+  CODE:
+    if (getpos(list) >= getlen(list))
+      XSRETURN_UNDEF;
+    else
+      RETVAL = get_levenstein(list);
+  OUTPUT:
+    RETVAL
+
+void
+put_levenstein(list, v)
+	Data::BitStream::BitList list
+	unsigned long	 v
+
+unsigned long
+get_adaptive_gamma_rice(list, k)
+	Data::BitStream::BitList list
+        int &k
+  CODE:
+    if (getpos(list) >= getlen(list))
+      XSRETURN_UNDEF;
+    else
+      RETVAL = get_adaptive_gamma_rice(list, &k);
+  OUTPUT:
+    k
+    RETVAL
+
+void
+put_adaptive_gamma_rice(list, k, v)
+	Data::BitStream::BitList list
+	int &k
+	unsigned long	 v
+  OUTPUT:
+    k
