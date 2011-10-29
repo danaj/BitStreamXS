@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 
-use Test::More  tests => 35;
+use Test::More  tests => 37;
 use Data::BitStream::XS;
 
 
@@ -54,6 +54,11 @@ use Data::BitStream::XS;
   is($v, 3, "readahead value");
   $status = !$stream->writing && $stream->len == 9 && $stream->pos == 0;
   ok($status, "readahead status");
+
+  $v = $stream->read(2, 'readahead');
+  is($v, 3, "read(readahead) value");
+  $status = !$stream->writing && $stream->len == 9 && $stream->pos == 0;
+  ok($status, "read(readahead) status");
 
   # Unary is 000..1
   $v = $stream->read(9);

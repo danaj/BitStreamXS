@@ -26,6 +26,12 @@ BEGIN {
   }
 }
 
+################################################################################
+#
+#                               SUPPORT FUNCTIONS
+#
+################################################################################
+
 sub erase_for_write {
   my $self = shift;
   $self->erase;
@@ -70,6 +76,101 @@ sub put_stream {
 
   $self->put_string($source->to_string);
   1;
+}
+
+################################################################################
+#
+#                                   CODES
+#
+################################################################################
+
+sub get_golomb {
+  my $self = shift;
+  return    (ref $_[0] eq 'CODE')
+         ?  $self->get_golomb_sub(@_)
+         :  $self->get_golomb_sub(undef, @_);
+}
+sub put_golomb {
+  my $self = shift;
+  return    (ref $_[0] eq 'CODE')
+         ?  $self->put_golomb_sub(@_)
+         :  $self->put_golomb_sub(undef, @_);
+}
+
+sub get_rice {
+  my $self = shift;
+  return    (ref $_[0] eq 'CODE')
+         ?  $self->get_rice_sub(@_)
+         :  $self->get_rice_sub(undef, @_);
+}
+sub put_rice {
+  my $self = shift;
+  return    (ref $_[0] eq 'CODE')
+         ?  $self->put_rice_sub(@_)
+         :  $self->put_rice_sub(undef, @_);
+}
+
+sub get_arice {
+  my $self = shift;
+  return    (ref $_[0] eq 'CODE')
+         ?  $self->get_arice_sub(@_)
+         :  $self->get_arice_sub(undef, @_);
+}
+sub put_arice {
+  my $self = shift;
+  return    (ref $_[0] eq 'CODE')
+         ?  $self->put_arice_sub(@_)
+         :  $self->put_arice_sub(undef, @_);
+}
+
+sub get_adaptive_gamma_rice { shift->get_arice(@_); }
+sub put_adaptive_gamma_rice { shift->put_arice(@_); }
+
+# Map Start-Step-Stop codes to Start/Stop codes.
+# See Data::BitStream::Code::StartStop for more detail
+
+sub _map_sss_to_ss {
+  my($start, $step, $stop, $maxstop) = @_;
+  $stop = $maxstop if (!defined $stop) || ($stop > $maxstop);
+  die "invalid parameters" unless ($start >= 0) && ($start <= $maxstop);
+  die "invalid parameters" unless $step >= 0;
+  die "invalid parameters" unless $stop >= $start;
+  return if $start == $stop;  # Binword
+  return if $step == 0;       # Rice
+
+  my @pmap = ($start);
+  my $blen = $start;
+  while ($blen < $stop) {
+    $blen += $step;
+    $blen = $stop if $blen > $stop;
+    push @pmap, $step;
+  }
+  @pmap;
+}
+
+sub put_startstepstop {
+  my $self = shift;
+  my $p = shift;
+  die "invalid parameters" unless (ref $p eq 'ARRAY') && scalar @$p == 3;
+
+  my($start, $step, $stop) = @$p;
+  return $self->put_binword($start, @_) if $start == $stop;
+  return $self->put_rice($start, @_)    if $step == 0;
+  my @pmap = _map_sss_to_ss($start, $step, $stop, $self->maxbits);
+  die "unexpected death" unless scalar @pmap >= 2;
+  $self->put_startstop( [@pmap], @_ );
+}
+sub get_startstepstop {
+  my $self = shift;
+  my $p = shift;
+  die "invalid parameters" unless (ref $p eq 'ARRAY') && scalar @$p == 3;
+
+  my($start, $step, $stop) = @$p;
+  return $self->get_binword($start, @_) if $start == $stop;
+  return $self->get_rice($start, @_)    if $step == 0;
+  my @pmap = _map_sss_to_ss($start, $step, $stop, $self->maxbits);
+  die "unexpected death" unless scalar @pmap >= 2;
+  return $self->get_startstop( [@pmap], @_ );
 }
 
 1;

@@ -35,6 +35,7 @@
     int c = 0; \
     if (count < 0)  count = MAX_COUNT; \
     if (!wantarray) { \
+      v = 0; \
       while ( (c++ < count) && (list->pos < list->len) ) \
         v = get_ ## codename(__VA_ARGS__); \
       PUSHs(sv_2mortal(newSVuv(  v  ))); \
@@ -47,7 +48,8 @@
       } \
       while ( (c++ < count) && (list->pos < list->len) ) { \
         if (++st_pos > st_size) { EXTEND(SP, BLSTGROW); st_size += BLSTGROW; } \
-        PUSHs(sv_2mortal(newSVuv(  get_ ## codename(__VA_ARGS__)  ))); \
+        v = get_ ## codename(__VA_ARGS__); \
+        PUSHs(sv_2mortal(newSVuv(  v  ))); \
       } \
     }
 
@@ -60,12 +62,14 @@
         put_ ## codename(__VA_ARGS__, SvUV(ST(c))); \
     }
 
-#define GET_CODE(cn)       GET_CODEVP(cn, 0, list)
-#define PUT_CODE(cn)       PUT_CODEVP(cn, 0, list)
-#define GET_CODEP(cn,p)    GET_CODEVP(cn, 1, list, p)
-#define PUT_CODEP(cn,p)    PUT_CODEVP(cn, 1, list, p)
-#define GET_CODEPP(cn,p,r) GET_CODEVP(cn, 2, list, p, r)
-#define PUT_CODEPP(cn,p,r) PUT_CODEVP(cn, 2, list, p, r)
+#define GET_CODE(cn)          GET_CODEVP(cn, 0, list)
+#define PUT_CODE(cn)          PUT_CODEVP(cn, 0, list)
+#define GET_CODEP(cn,a)       GET_CODEVP(cn, 1, list, a)
+#define PUT_CODEP(cn,a)       PUT_CODEVP(cn, 1, list, a)
+#define GET_CODEPP(cn,a,b)    GET_CODEVP(cn, 2, list, a, b)
+#define PUT_CODEPP(cn,a,b)    PUT_CODEVP(cn, 2, list, a, b)
+#define GET_CODESPP(cn,s,a,b) GET_CODEVP(cn, 2, list, s, a, b)
+#define PUT_CODESPP(cn,s,a,b) PUT_CODEVP(cn, 2, list, s, a, b)
 
 typedef BitList* Data__BitStream__XS;
 
@@ -80,7 +84,7 @@ new (IN char* package, IN int nBits = 0)
   OUTPUT:
     RETVAL
 
-void 
+void
 DESTROY(IN Data::BitStream::XS list)
 
 int
@@ -171,7 +175,7 @@ void
 write_close(IN Data::BitStream::XS list)
 
 unsigned long
-read(IN Data::BitStream::XS list, IN int bits)
+read(IN Data::BitStream::XS list, IN int bits, IN char* flags = 0)
   CODE:
     if (list->is_writing) {
       croak("read while writing");
@@ -181,11 +185,16 @@ read(IN Data::BitStream::XS list, IN int bits)
       croak("invalid bits: %d", bits);
       XSRETURN_UNDEF;
     }
-    int pos = list->pos;
-    int len = list->len;
-    if ( (pos >= len) || ((pos+bits) > len) )
-      XSRETURN_UNDEF;
-    RETVAL = sread(list, bits);
+    int readahead = (flags != 0) && (strcmp(flags, "readahead") == 0);
+    if (readahead) {
+      if (list->pos >= list->len)
+        XSRETURN_UNDEF;
+      RETVAL = sreadahead(list, bits);
+    } else {
+      if ( (list->pos + bits-1) >= list->len )
+        XSRETURN_UNDEF;
+      RETVAL = sread(list, bits);
+    }
   OUTPUT:
     RETVAL
 
@@ -220,11 +229,25 @@ write(IN Data::BitStream::XS list, IN int bits, IN unsigned long v)
     swrite(list, bits, v);
 
 void
-put_string(IN Data::BitStream::XS list, IN char* s)
+put_string(IN Data::BitStream::XS list, ...)
+  CODE:
+    if (!list->is_writing) {
+      croak("write while reading");
+    } else {
+      int c = 0;
+      while (++c < items)
+        put_string(list, SvPV_nolen(ST(c)));
+    }
 
 SV *
 read_string(IN Data::BitStream::XS list, IN int bits)
   CODE:
+    if (list->is_writing)
+      { croak("read while writing"); XSRETURN_UNDEF; }
+    if (bits < 0)
+      { croak("invalid bits: %d", bits); XSRETURN_UNDEF; }
+    if (bits > (list->len - list->pos))
+      { croak("short read"); XSRETURN_UNDEF; }
     char* buf = read_string(list, bits);
     if (buf == 0) {
       XSRETURN_UNDEF;
@@ -258,7 +281,7 @@ from_raw(IN Data::BitStream::XS list, IN char* str, IN int bits)
 
 
 void
-get_unary(IN Data::BitStream::XS list, IN int count = 1) 
+get_unary(IN Data::BitStream::XS list, IN int count = 1)
   PPCODE:
     GET_CODE(unary);
 
@@ -392,22 +415,48 @@ put_boldivigna(IN Data::BitStream::XS list, IN int k, ...)
     PUT_CODEP(boldivigna, k);
 
 void
-get_rice(IN Data::BitStream::XS list, IN int k, IN int count = 1)
+get_rice_sub(IN Data::BitStream::XS list, IN SV* coderef, IN int k, IN int count = 1)
+  PREINIT:
+    SV* self = ST(0);
+    SV* cref = 0;
   PPCODE:
     if ( (k < 0) || (k > BITS_PER_WORD) ) {
       croak("invalid parameters: rice %d", k);
       XSRETURN_UNDEF;
     }
-    GET_CODEP(rice, k);
+    if (!SvROK(coderef)) {
+      self = 0;
+      cref = 0;
+    } else {
+      if ((!SvROK(coderef)) || (SvTYPE(SvRV(coderef)) != SVt_PVCV) ) {
+        croak("invalid parameters: rice coderef");
+        return;
+      }
+      cref = SvRV(coderef);
+    }
+    GET_CODESPP(rice_sub, self, cref, k);
 
 void
-put_rice(IN Data::BitStream::XS list, IN int k, ...)
+put_rice_sub(IN Data::BitStream::XS list, IN SV* coderef, IN int k, ...)
+  PREINIT:
+    SV* self = ST(0);
+    SV* cref = 0;
   CODE:
     if ( (k < 0) || (k > BITS_PER_WORD) ) {
       croak("invalid parameters: rice %d", k);
       return;
     }
-    PUT_CODEP(rice, k);
+    if (!SvROK(coderef)) {
+      self = 0;
+      cref = 0;
+    } else {
+      if ((!SvROK(coderef)) || (SvTYPE(SvRV(coderef)) != SVt_PVCV) ) {
+        croak("invalid parameters: rice coderef");
+        return;
+      }
+      cref = SvRV(coderef);
+    }
+    PUT_CODESPP(rice_sub, self, cref, k);
 
 void
 get_gamma_rice(IN Data::BitStream::XS list, IN int k, IN int count = 1)
@@ -432,48 +481,48 @@ put_gamma_rice(IN Data::BitStream::XS list, IN int k, ...)
     PUT_CODEP(gamma_rice, k);
 
 void
-get_golomb(IN Data::BitStream::XS list, IN unsigned long m, IN int count = 1)
-  PPCODE:
-    if (m < 1UL) {
-      croak("invalid parameters: golomb %lu", m);
-      XSRETURN_UNDEF;
-    }
-    GET_CODEP(golomb, m);
-
-void
-put_golomb(IN Data::BitStream::XS list, IN unsigned long m, ...)
-  CODE:
-    if (m < 1UL) {
-      croak("invalid parameters: golomb %lu", m);
-      return;
-    }
-    PUT_CODEP(golomb, m);
-
-void
 get_golomb_sub(IN Data::BitStream::XS list, IN SV* coderef, IN unsigned long m, IN int count = 1)
+  PREINIT:
+    SV* self = ST(0);
+    SV* cref = 0;
   PPCODE:
-    if ((!SvROK(coderef)) || (SvTYPE(SvRV(coderef)) != SVt_PVCV) ) {
-      croak("invalid parameters: golomb coderef");
-      return;
-    }
     if (m < 1UL) {
       croak("invalid parameters: golomb %lu", m);
       XSRETURN_UNDEF;
     }
-    GET_CODEPP(golomb_sub, SvRV(coderef), m);
+    if (!SvROK(coderef)) {
+      self = 0;
+      cref = 0;
+    } else {
+      if ((!SvROK(coderef)) || (SvTYPE(SvRV(coderef)) != SVt_PVCV) ) {
+        croak("invalid parameters: golomb coderef");
+        return;
+      }
+      cref = SvRV(coderef);
+    }
+    GET_CODESPP(golomb_sub, self, cref, m);
 
 void
 put_golomb_sub(IN Data::BitStream::XS list, IN SV* coderef, IN unsigned long m, ...)
+  PREINIT:
+    SV* self = ST(0);
+    SV* cref = 0;
   CODE:
-    if ((!SvROK(coderef)) || (SvTYPE(SvRV(coderef)) != SVt_PVCV) ) {
-      croak("invalid parameters: golomb coderef");
-      return;
-    }
     if (m < 1UL) {
       croak("invalid parameters: golomb %lu", m);
       return;
     }
-    PUT_CODEPP(golomb_sub, SvRV(coderef), m);
+    if (!SvROK(coderef)) {
+      self = 0;
+      cref = 0;
+    } else {
+      if ((!SvROK(coderef)) || (SvTYPE(SvRV(coderef)) != SVt_PVCV) ) {
+        croak("invalid parameters: golomb coderef");
+        return;
+      }
+      cref = SvRV(coderef);
+    }
+    PUT_CODESPP(golomb_sub, self, cref, m);
 
 
 void
@@ -499,53 +548,79 @@ put_gamma_golomb(IN Data::BitStream::XS list, IN unsigned long m, ...)
     PUT_CODEP(gamma_golomb, m);
 
 void
-get_adaptive_gamma_rice(list, k, count=1)
+get_arice_sub(list, coderef, k, count=1)
       Data::BitStream::XS list
+      SV* coderef
       int &k
       int count
   PREINIT:
-    /* Note the stack position of k, so we can modify it */
-    SV* stack_k_ptr = ST(1);
+    SV* self = ST(0);
+    SV* cref = 0;
+    SV* stack_k_ptr = ST(2);  // Remember position of k, it will be modified
   PPCODE:
     if ( (k < 0) || (k > BITS_PER_WORD) ) {
       croak("invalid parameters: adaptive_gamma_rice %d", k);
       XSRETURN_UNDEF;
     }
-    GET_CODEP(adaptive_gamma_rice, &k);
+    if (!SvROK(coderef)) {
+      self = 0;
+      cref = 0;
+    } else {
+      if ((!SvROK(coderef)) || (SvTYPE(SvRV(coderef)) != SVt_PVCV) ) {
+        croak("invalid parameters: adaptive_gamma_rice coderef");
+        return;
+      }
+      cref = SvRV(coderef);
+    }
+    GET_CODESPP(adaptive_gamma_rice_sub, self, cref, &k);
     /* Return the modified k back to Perl */
     sv_setiv(stack_k_ptr, k);
     SvSETMAGIC(stack_k_ptr);
 
 void
-put_adaptive_gamma_rice(list, k, ...)
-	Data::BitStream::XS list
-	int &k
+put_arice_sub(list, coderef, k, ...)
+      Data::BitStream::XS list
+      SV* coderef
+      int &k
+  PREINIT:
+    SV* self = ST(0);
+    SV* cref = 0;
   CODE:
     if ( (k < 0) || (k > BITS_PER_WORD) ) {
       croak("invalid parameters: adaptive_gamma_rice %d", k);
       return;
     }
-    PUT_CODEP(adaptive_gamma_rice, &k);
+    if (!SvROK(coderef)) {
+      self = 0;
+      cref = 0;
+    } else {
+      if ((!SvROK(coderef)) || (SvTYPE(SvRV(coderef)) != SVt_PVCV) ) {
+        croak("invalid parameters: adaptive_gamma_rice coderef");
+        return;
+      }
+      cref = SvRV(coderef);
+    }
+    PUT_CODESPP(adaptive_gamma_rice_sub, self, cref, &k);
   OUTPUT:
     k
 
-void
-get_startstepstop(IN Data::BitStream::XS list, IN SV* p, IN int count = 1)
-  CODE:
-    // See:  http://perldoc.perl.org/perlxstut.html#EXAMPLE-6
-    croak("not implemented");
-
-void
-put_startstepstop(IN Data::BitStream::XS list, IN SV* p, ...)
-  CODE:
-    croak("not implemented");
 
 void
 get_startstop(IN Data::BitStream::XS list, IN SV* p, IN int count = 1)
-  CODE:
-    croak("not implemented");
+  PPCODE:
+    char* map = make_startstop_prefix_map(p);
+    if (map == 0) {
+      XSRETURN_UNDEF;
+    }
+    /* TODO: we'll skip free in some croak conditions */
+    GET_CODEP(startstop, map);
+    free(map);
 
 void
 put_startstop(IN Data::BitStream::XS list, IN SV* p, ...)
   CODE:
-    croak("not implemented");
+    char* map = make_startstop_prefix_map(p);
+    if (map == 0)
+       return;
+    PUT_CODEVP(startstop, 1, list, map);
+    free(map);

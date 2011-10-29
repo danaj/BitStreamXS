@@ -22,9 +22,11 @@ t/13-lev.t
 t/14-arice.t
 t/15-rice.t
 t/16-golomb.t
+t/16-golomb-sub.t
 t/17-baer.t
 t/18-evenrodeh.t
 t/19-boldivigna.t
+t/20-startstep.t
 t/50-stream1.t
 typemap
 README
