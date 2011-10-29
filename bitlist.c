@@ -2,9 +2,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
-#include "bitlist.h"
 
+#include "EXTERN.h"
+#include "perl.h"
 #include "XSUB.h"
+
+#include "bitlist.h"
 
 static int verbose = 0;
 
@@ -26,6 +29,58 @@ static char* word_to_bin(WTYPE word)
   }
   binstr[BITS_PER_WORD] = '\0';
   return binstr;
+}
+
+static WTYPE call_get_sub(SV* code, BitList* list)
+{
+  SV* list_sv;
+
+  dSP;
+  ENTER;
+  SAVETMPS;
+  PUSHMARK(SP);
+
+  list_sv = sv_newmortal();
+  sv_setref_pv(list_sv, "Data::BitStream::XS", list);
+
+  XPUSHs(list_sv);
+  // args could go here
+
+  PUTBACK;
+  if (call_sv(code, G_SCALAR) != 1)
+    croak("get sub should return one value");
+
+  WTYPE v = POPl;
+
+  SPAGAIN;
+  PUTBACK;
+  FREETMPS;
+  LEAVE;
+  return v;
+}
+
+static void call_put_sub(SV* code, BitList* list, WTYPE value)
+{
+  SV* list_sv;
+
+  dSP;
+  ENTER;
+  SAVETMPS;
+  PUSHMARK(SP);
+
+  list_sv = sv_newmortal();
+  sv_setref_pv(list_sv, "Data::BitStream::XS", list);
+
+  XPUSHs(list_sv);
+  XPUSHs(sv_2mortal(newSVuv(value)));
+
+  PUTBACK;
+  (void) call_sv(code, G_SCALAR);
+
+  SPAGAIN;
+  PUTBACK;
+  FREETMPS;
+  LEAVE;
 }
 
 
@@ -58,7 +113,7 @@ BitList *new(int bits)
 
   if (list->is_writing)
     write_open(list);
-  else 
+  else
     read_open(list);
 
   if (list->mode == eModeA)
@@ -888,6 +943,98 @@ void  put_baer (BitList *list, int k, WTYPE value)
     swrite(list, k, value);
 }
 
+typedef struct {
+  int    maxhk;
+  int    s [BITS_PER_WORD / 2];    // shift amount
+  WTYPE  t [BITS_PER_WORD / 2];    // threshold
+} bvzeta_map;
+
+bvzeta_map bvzeta_map_cache[16] = {0};
+
+static void bv_make_param_map(int k)
+{
+  assert(k >= 2);
+  assert(k <= 15);
+  bvzeta_map* bvm = &(bvzeta_map_cache[k]);
+  if (bvm->maxhk == 0) {
+    int maxh = (BITS_PER_WORD - 1) / k;
+    assert(maxh < (BITS_PER_WORD/2));
+    //int maxh = 0;
+    //while ((k * (maxh+1)) < BITS_PER_WORD)  maxh++;
+    int h;
+    for (h = 0; h <= maxh; h++) {
+      int hk = h * k;
+      WTYPE interval = (1UL << (hk+k)) - (1UL << hk) - 1;
+      WTYPE z = interval + 1UL;
+      int s = 1;
+      { WTYPE v = z; while ( (v >>= 1) != 0)  s++; } // ceil log2(z)
+      assert(s >= 2);
+      WTYPE thresh = (1UL << s) - z;
+      bvm->s[h] = s;
+      bvm->t[h] = thresh;
+    }
+    bvm->maxhk = maxh * k;
+  }
+}
+
+WTYPE get_boldivigna (BitList *list, int k)
+{
+  assert(k >= 1);
+  assert(k <= 15);  // You should use Delta codes for anything over 6.
+
+  if (k == 1)  return get_gamma(list);
+
+  bvzeta_map* bvm = &(bvzeta_map_cache[k]);
+  if (bvm->maxhk == 0)
+    bv_make_param_map(k);
+
+  int maxh = bvm->maxhk / k;
+  assert(maxh < (BITS_PER_WORD/2));
+
+  WTYPE h = get_unary(list);
+  if (h > maxh) return ~0UL;
+  int   s = bvm->s[h];
+  WTYPE t = bvm->t[h];
+  assert(s >= 2);
+  WTYPE first = sread(list, s-1);
+  if (first >= t)
+    first = (first << 1) + sread(list, 1) - t;
+
+  WTYPE v = (1UL << (h*k)) - 1UL + first;   // -1 is to make 0 based
+  return v;
+}
+void  put_boldivigna (BitList *list, int k, WTYPE value)
+{
+  assert(k >= 1);
+  assert(k <= 15);  // You should use Delta codes for anything over 6.
+
+  if (k == 1)  { put_gamma(list, value); return; }
+
+  bvzeta_map* bvm = &(bvzeta_map_cache[k]);
+  if (bvm->maxhk == 0)
+    bv_make_param_map(k);
+
+  int maxh = bvm->maxhk / k;
+  assert(maxh < (BITS_PER_WORD/2));
+
+  if (value == ~0UL)  { put_unary(list, maxh+1); return; }
+
+  int maxhk = maxh * k;
+  int hk = 0;
+  while ( (hk < maxhk) && (value >= ((1UL << (hk+k))-1)) )  hk += k;
+  int h = hk/k;
+  assert(h <= maxh);
+  int   s = bvm->s[h];
+  WTYPE t = bvm->t[h];
+
+  put_unary(list, h);
+  WTYPE x = value - (1UL << hk) + 1UL;
+  if (x < t)
+    swrite(list, s-1, x);
+  else
+    swrite(list, s, x+t);
+}
+
 WTYPE get_rice (BitList *list, int k)
 {
   assert(k >= 0);
@@ -980,6 +1127,64 @@ void  put_golomb (BitList *list, WTYPE m, WTYPE value)
   assert(r < m);
   assert(q*m+r == value);
   put_unary(list, q);
+  if (r < threshold)
+    swrite(list, base-1, r);
+  else
+    swrite(list, base, r + threshold);
+}
+
+WTYPE get_golomb_sub (BitList *list, SV* code, WTYPE m)
+{
+  assert(m >= 1UL);
+  assert(code != 0);
+
+  //WTYPE q = get_unary(list);
+  WTYPE q = call_get_sub(code, list);
+  if (m == 1UL)  return q;
+
+  int base = 1;
+  {
+    WTYPE v = m-1UL;
+    while (v >>= 1)  base++;
+  }
+  WTYPE threshold = (1UL << base) - m;
+
+  WTYPE v = q * m;
+  if (threshold == 0) {
+    v += sread(list, base);
+  } else {
+    WTYPE first = sread(list, base-1);
+    if (first >= threshold)
+      first = (first << 1) + sread(list, 1) - threshold;
+    v += first;
+  }
+  return v;
+}
+void  put_golomb_sub (BitList *list, SV* code, WTYPE m, WTYPE value)
+{
+  assert(m >= 1UL);
+  assert(code != 0);
+
+  if (m == 1UL) {
+    //put_unary(list, value);
+    call_put_sub(code, list, value);
+    return;
+  }
+
+  int base = 1;
+  {
+    WTYPE v = m-1UL;
+    while (v >>= 1)  base++;
+  }
+  WTYPE threshold = (1UL << base) - m;
+
+  WTYPE q = value / m;
+  WTYPE r = value - (q * m);
+  assert(r >= 0);
+  assert(r < m);
+  assert(q*m+r == value);
+  //put_unary(list, q);
+  call_put_sub(code, list, q);
   if (r < threshold)
     swrite(list, base-1, r);
   else
