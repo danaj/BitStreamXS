@@ -1,0 +1,15 @@
+bitlist.c
+bitlist.h
+BitList.xs
+lib/Data/BitStream/BitList.pm
+MANIFEST
+Makefile.PL
+t/01-load.t
+t/02-rw.t
+t/03-rw.t
+t/04-rw.t
+t/05-rw.t
+t/06-unary.t
+t/07-gamma.t
+t/08-string1.t
+typemap
