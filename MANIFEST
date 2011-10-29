@@ -10,6 +10,7 @@ t/03-rw.t
 t/04-rw.t
 t/05-rw.t
 t/06-unary.t
+t/06-unaryarray.t
 t/07-gamma.t
 t/08-string1.t
 t/08-string2.t
@@ -23,4 +24,5 @@ t/15-rice.t
 t/16-golomb.t
 t/17-baer.t
 t/18-evenrodeh.t
+t/50-stream1.t
 typemap

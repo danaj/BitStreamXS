@@ -6,25 +6,20 @@ use Test::More;
 use Data::BitStream::BitList;
 my $v = Data::BitStream::BitList->new;
 
-is($v->getlen, 0);
-is($v->getpos, 0);
+is($v->len, 0);
+is($v->pos, 0);
 
+my @a = 0 .. 257;
+my $nitems = scalar @a;
 foreach my $k (0 .. 31) {
-  foreach my $n (0 .. 257) {
-    my $m = 2*$k+1;
-    $v->put_golomb($m, $n);
-  }
+  my $m = 2*$k + 1;
+  $v->put_golomb($m, @a);
 }
-
-#$v->dump();
 
 $v->setpos(0);
 foreach my $k (0 .. 31) {
-  foreach my $n (0 .. 257) {
-    my $m = 2*$k+1;
-    my $value = $v->get_golomb($m);
-    is($value, $n);
-  }
+  my $m = 2*$k + 1;
+  is_deeply( [$v->get_golomb($m, $nitems)], \@a, "golomb($m) 0-257");
 }
 
 done_testing;

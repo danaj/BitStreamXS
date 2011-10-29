@@ -4,10 +4,9 @@
 #include <assert.h>
 #include "bitlist.h"
 
+#include "XSUB.h"
+
 static int verbose = 0;
-#define BITS_PER_WORD (8 * sizeof(WTYPE))
-#define MAXBIT        (BITS_PER_WORD-1)
-#define NWORDS(bits)  ( ((bits)+BITS_PER_WORD-1) / BITS_PER_WORD )
 
 #define BIT_STACK_SIZE 32
 
@@ -41,6 +40,30 @@ BitList *new(int bits)
   list->len = 0;
   list->maxlen = 0;
 
+  list->mode = eModeRW;
+  list->file = 0;
+  list->file_header = 0;
+  list->file_header_lines = 0;
+
+  list->is_writing = 0;
+  switch (list->mode) {
+    case eModeR:
+    case eModeRO:
+    case eModeA:    list->is_writing = 0;  break;
+    case eModeW:
+    case eModeWO:
+    case eModeRW:   list->is_writing = 1;  break;
+    default:        assert(0);
+  }
+
+  if (list->is_writing)
+    write_open(list);
+  else 
+    read_open(list);
+
+  if (list->mode == eModeA)
+    write_open(list);
+
   if (bits > 0)
     (void) resize(list, bits);
 
@@ -60,7 +83,9 @@ int resize(BitList *list, int bits)
     int oldwords = NWORDS(list->maxlen);
     int newwords = NWORDS(bits);
     list->data = (WTYPE*) realloc(list->data, newwords * sizeof(WTYPE));
-    if ( (list->data != 0) && (newwords > oldwords) ) {
+    if (list->data == 0) {
+      Perl_croak("failed to alloc %d bits", bits);
+    } else if (newwords > oldwords) {
       // Zero out any new allocated space
       memset( list->data + oldwords,  0,  (newwords-oldwords)*sizeof(WTYPE) );
     }
@@ -76,9 +101,15 @@ int resize(BitList *list, int bits)
 
 void DESTROY(BitList *list)
 {
-  if (list->data != 0)
-    free(list->data);
-  free(list);
+  if (list == 0) {
+    Perl_croak("null object");
+  } else {
+    if (list->is_writing)
+      write_close(list);
+    if (list->data != 0)
+      free(list->data);
+    free(list);
+  }
 }
 
 void dump(BitList *list)
@@ -90,28 +121,92 @@ void dump(BitList *list)
   }
 }
 
-int getlen(BitList *list)        { return list->len; }
-int getmaxlen(BitList *list)     { return list->maxlen; }
-int getpos(BitList *list)        { return list->pos; }
-
 int setlen(BitList *list, int newlen)
 {
-  // if less than maxlen...
-  list->len = newlen;
+  if ( (newlen < 0) || (newlen > list->maxlen) )
+    Perl_croak("invalid length: %d", newlen);
+  else
+    list->len = newlen;
   return list->len;
 }
 int setpos(BitList *list, int newpos)
 {
-  // if less than len...
-  list->pos = newpos;
+  if ( (newpos < 0) || (newpos > list->len) )
+    Perl_croak("invalid position: %d", newpos);
+  else
+    list->pos = newpos;
   return list->pos;
+}
+
+#if 0
+void rewind(BitList *list)
+{
+  if (list->is_writing)
+    Perl_croak("rewind while writing");
+  else
+    setpos(list, 0);
+}
+
+void skip(BitList *list, int bits)
+{
+  if (list->is_writing)
+    Perl_croak("skip while writing");
+  else if ((list->pos + bits) > list->len)
+    Perl_croak("skip off stream");
+  else
+    setpos(list, list->pos + bits);
+}
+
+bool exhausted(BitList *list)
+{
+  if (list->is_writing)
+    Perl_croak("exhausted while writing");
+  return (list->pos >= list->len);
+}
+
+void erase(BitList *list)
+{
+  resize(list, 0);
+}
+#endif
+
+void read_open(BitList *list)
+{
+  if (list->mode == eModeRO) {
+    Perl_croak("read while stream opened writeonly");
+    return;
+  }
+  if (list->is_writing)
+    write_close(list);
+  // TODO: file stuff
+}
+
+void write_open(BitList *list)
+{
+  if (list->mode == eModeRO) {
+    Perl_croak("write while stream opened readonly");
+    return;
+  }
+  if (!list->is_writing) {
+    list->is_writing = 1;
+  }
+}
+
+void write_close(BitList *list)
+{
+  if (list->is_writing) {
+    list->is_writing = 0;
+    list->pos = list->len;
+    // TODO: file stuff
+  }
 }
 
 WTYPE vread(BitList *list, int bits)
 {
-  assert(bits > 0);
-  assert(bits <= BITS_PER_WORD);
-
+  if ( (bits < 0) || (bits > BITS_PER_WORD) ) {
+    Perl_croak("invalid bits: %d", bits);
+    return 0UL;
+  }
   WTYPE v = vreadahead(list, bits);
   list->pos += bits;
   return v;
@@ -119,8 +214,10 @@ WTYPE vread(BitList *list, int bits)
 
 WTYPE vreadahead(BitList *list, int bits)
 {
-  assert(bits > 0);
-  assert(bits <= BITS_PER_WORD);
+  if ( (bits < 0) || (bits > BITS_PER_WORD) ) {
+    Perl_croak("invalid bits: %d", bits);
+    return 0UL;
+  }
 
   WTYPE v = 0;
   int pos = list->pos;
@@ -161,6 +258,11 @@ WTYPE vreadahead(BitList *list, int bits)
 
 void vwrite(BitList *list, int bits, WTYPE value)
 {
+  if (bits < 0) {
+    Perl_croak("invalid bits: %d", bits);
+    return;
+  }
+
   int len = list->len;
 
   // expand the data if necessary
@@ -169,10 +271,16 @@ void vwrite(BitList *list, int bits, WTYPE value)
   if (value == 0) {
     list->len += bits;
     return;
+  } else if (value == 1UL) {
+    len += bits-1;
+    bits = 1;
   }
 
-  assert(bits > 0);
-  assert(bits <= BITS_PER_WORD);
+  // Note that we allowed writing 0 and 1 with any number of bits.
+  if ( (bits < 0) || (bits > BITS_PER_WORD) ) {
+    Perl_croak("invalid bits: %d", bits);
+    return;
+  }
 
   // mask value if needed
   if (bits < BITS_PER_WORD) {
@@ -198,11 +306,6 @@ void vwrite(BitList *list, int bits, WTYPE value)
   return;
 #endif
 
-  if (value == 1) {   // Optimize value 1 for any bits
-    len += bits-1;
-    bits = 1;
-  }
-
   int wpos = len / BITS_PER_WORD;
   int bpos = len % BITS_PER_WORD;
   int wlen = BITS_PER_WORD - bits;
@@ -224,6 +327,7 @@ void vwrite(BitList *list, int bits, WTYPE value)
 void put_string(BitList *list, char* s)
 {
   // Write words.  Reasonably fast.
+  assert( (list != 0) && (s != 0) );
   WTYPE word;
   int bits;
   while (*s != '\0') {
@@ -238,12 +342,20 @@ void put_string(BitList *list, char* s)
 
 char* read_string(BitList *list, int bits)
 {
-  int pos = list->pos;
-  if ((pos + bits) > list->len)
+  if (bits < 0) {
+    Perl_croak("Invalid bits: %d", bits);
     return 0;
+  }
+  if (bits > (list->len - list->pos)) {
+    Perl_croak("Short read");
+    return 0;
+  }
   char* buf = (char*) malloc(bits+1);
-  if (buf == 0)
-    return buf;
+  if (buf == 0) {
+    Perl_croak("alloc failure");
+    return 0;
+  }
+  int pos = list->pos;
 #if 0
   int b;
   for (b = 0; b < bits; b++) {
@@ -309,8 +421,10 @@ char* to_raw(BitList *list)
 }
 void from_raw(BitList *list, char* str, int bits)
 {
-  assert(str != 0);
-  assert(bits >= 0);
+  if ( (str == 0) || (bits < 0) ) {
+    Perl_croak("invalid input to from_raw");
+    return;
+  }
   resize(list, bits);
   if (bits > 0) {
     int bytes = (bits + 7) / 8;
@@ -335,6 +449,7 @@ void from_raw(BitList *list, char* str, int bits)
 WTYPE get_unary (BitList *list)
 {
   int pos = list->pos;
+  int maxpos = list->len - 1;
 
   // First word
   int wpos = pos / BITS_PER_WORD;
@@ -342,11 +457,15 @@ WTYPE get_unary (BitList *list)
   WTYPE *wptr = list->data + wpos;
   WTYPE word = (*wptr & (~0UL >> bpos)) << bpos;
 
-  if (word == 0) {
+  if (word == 0UL) {
     pos += (BITS_PER_WORD - bpos);
-    while ( *++wptr == 0UL )
+    while ( (*++wptr == 0UL) && (pos <= maxpos) )
        pos += BITS_PER_WORD;
     word = *wptr;
+  }
+  if (pos > maxpos) {
+    Perl_croak("read off end of stream");
+    return 0UL;
   }
   assert(word != 0);
 
@@ -359,17 +478,18 @@ WTYPE get_unary (BitList *list)
     pos++;
     word <<= 1;
   }
+  /* We found a 1 in one of our valid words, this should be true */
+  assert(pos <= maxpos);
 
   WTYPE v = pos - list->pos;
   list->pos = pos+1;
+  assert(list->pos <= list->len);  /* double check we're not off the end */
   return v;
 }
 
 void put_unary (BitList *list, WTYPE value)
 {
-#if 0
-  vwrite(list, value+1, 1);
-#else
+  // Simple way to do this:   vwrite(list, value+1, 1);
   int len = list->len;
   int bits = value+1;
 
@@ -382,33 +502,40 @@ void put_unary (BitList *list, WTYPE value)
 
   list->data[wpos] |= (1UL << (MAXBIT - bpos));
   list->len = len + 1;
-#endif
 }
 
 WTYPE get_unary1 (BitList *list)
 {
   int pos = list->pos;
-  WTYPE word;
+  int maxpos = list->len - 1;
 
   // First word
   int wpos = pos / BITS_PER_WORD;
   int bpos = pos % BITS_PER_WORD;
-  if (bpos == 0)
-    word = list->data[wpos];
-  else
-    word = (list->data[wpos] << bpos) | (~0UL >> (BITS_PER_WORD - bpos));
+  WTYPE *wptr = list->data + wpos;
+  WTYPE word = (bpos == 0) ? *wptr
+                           : (*wptr << bpos) | (~0UL >> (BITS_PER_WORD - bpos));
 
   if (word == ~0UL) {
     pos += (BITS_PER_WORD - bpos);
-    while ( list->data[ pos / BITS_PER_WORD ] == ~0UL )
+    while ( (*++wptr == ~0UL) && (pos <= maxpos) )
        pos += BITS_PER_WORD;
-    word = list->data[ pos / BITS_PER_WORD ];
+    word = *wptr;
+  }
+  if (pos > maxpos) {
+    Perl_croak("read off end of stream");
+    return 0UL;
   }
   assert(word != ~0UL);
 
   while ( (word & (1UL << MAXBIT)) != 0UL ) {
     pos++;
     word <<= 1;
+  }
+
+  if (pos > maxpos) {
+    Perl_croak("read off end of stream");
+    return 0UL;
   }
 
   WTYPE v = pos - list->pos;
@@ -455,7 +582,10 @@ void put_unary1 (BitList *list, WTYPE value)
 WTYPE get_gamma (BitList *list)
 {
   WTYPE base = get_unary(list);
-  assert(base <= BITS_PER_WORD);
+  if (base > BITS_PER_WORD) {
+    Perl_croak("Invalid base: %d", base);
+    return 0UL;
+  }
   WTYPE v;
   if (base == 0UL) {
     v = 0UL;
@@ -486,7 +616,10 @@ void put_gamma (BitList *list, WTYPE value)
 WTYPE get_delta (BitList *list)
 {
   WTYPE base = get_gamma(list);
-  assert(base <= BITS_PER_WORD);
+  if (base > BITS_PER_WORD) {
+    Perl_croak("Invalid base: %d", base);
+    return 0UL;
+  }
   WTYPE v;
   if (base == 0UL) {
     v = 0UL;
@@ -501,7 +634,6 @@ WTYPE get_delta (BitList *list)
 void put_delta (BitList *list, WTYPE value)
 {
   if (value == 0UL) {
-    //vwrite(list, 1, 1);
     put_gamma(list, 0);
   } else if (value == ~0UL) {
     put_gamma(list, BITS_PER_WORD);
@@ -587,35 +719,45 @@ WTYPE get_fib (BitList *list)
   return(v-1);
 }
 
-#define FIB_STACK_SIZE 256
 void put_fib (BitList *list, WTYPE value)
 {
   _calc_fibv();
 
-  // Note that we're being very careful to allow ~0 to be encoded properly.
+  // We're constructing a big code backwards.  We fill in a word backwards,
+  // then add it to a stack when full.  When done, we pop off each word from
+  // the stack and write it.
 
   int s = 0;
   while ( (s <= maxfibv) && (value >= (fibv[s]-1)) )
     s++;
 
   int sp = 0;
-  int   stack_b[FIB_STACK_SIZE];
-  WTYPE stack_v[FIB_STACK_SIZE];
+  int   stack_b[BIT_STACK_SIZE];
+  WTYPE stack_v[BIT_STACK_SIZE];
 
-  { stack_b[sp] = 2; stack_v[sp] = 3; sp++; }
+  // Note that we're being careful to allow ~0 to be encoded properly.
   WTYPE v = value - fibv[--s] + 1;
 
+  // Current word we're constructing.  Trailing '11' filled in.
+  WTYPE word = 3UL;
+  WTYPE bits = 2;
+
   while (s-- > 0) {
-    assert(sp < FIB_STACK_SIZE);
+    assert(sp < BIT_STACK_SIZE);
     if (v >= fibv[s]) {
       v -= fibv[s];
-      { stack_b[sp] = 1; stack_v[sp] = 1; sp++; }
-    } else {
-      { stack_b[sp] = 1; stack_v[sp] = 0; sp++; }
+      word |= (1UL << bits);
+    }
+    bits++;
+    if (bits >= BITS_PER_WORD) {
+      stack_b[sp] = bits;  stack_v[sp] = word;  sp++;
+      bits = 0;
+      word = 0;
     }
   }
-  while (sp > 0) {
-    sp--;
+  if (bits)
+    vwrite(list, bits, word);
+  while (sp-- > 0) {
     vwrite(list, stack_b[sp], stack_v[sp]);
   }
 }
@@ -704,6 +846,15 @@ void put_evenrodeh (BitList *list, WTYPE value)
     sp--;
     vwrite(list, stack_b[sp], stack_v[sp]);
   }
+}
+
+WTYPE get_binword (BitList *list, int k)
+{
+  return vread(list, k);
+}
+void  put_binword (BitList *list, int k, WTYPE value)
+{
+  vwrite(list, k, value);
 }
 
 WTYPE get_baer (BitList *list, int k)
@@ -921,8 +1072,8 @@ WTYPE get_adaptive_gamma_rice (BitList *list, int *kp)
 {
   assert( (list != 0) && (kp != 0) );
   int k = *kp;
-  if (k < 0) k = 0;
-  if (k > BITS_PER_WORD) k = BITS_PER_WORD;
+  assert(k >= 0);
+  assert(k <= BITS_PER_WORD);
 
   WTYPE v;
   WTYPE q = get_gamma(list);
@@ -940,8 +1091,8 @@ void put_adaptive_gamma_rice (BitList *list, int *kp, WTYPE value)
 {
   assert( (list != 0) && (kp != 0) );
   int k = *kp;
-  if (k < 0) k = 0;
-  if (k > BITS_PER_WORD) k = BITS_PER_WORD;
+  assert(k >= 0);
+  assert(k <= BITS_PER_WORD);
 
   if ( (value == 0) && (k == 0) ) {
     vwrite(list, 1, 1);

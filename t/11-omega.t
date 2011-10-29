@@ -6,19 +6,11 @@ use Test::More;
 use Data::BitStream::BitList;
 my $v = Data::BitStream::BitList->new;
 
-is($v->getlen, 0);
-is($v->getpos, 0);
+is($v->len, 0);
+is($v->pos, 0);
 
-foreach my $n (0 .. 257) {
-  $v->put_omega($n);
-}
-
-#$v->dump();
-
+$v->put_omega(0 .. 257);
 $v->setpos(0);
-foreach my $n (0 .. 257) {
-  my $value = $v->get_omega;
-  is($value, $n);
-}
+is_deeply( [$v->get_omega(-1)], [0 .. 257], 'omega 0-257');
 
 done_testing;

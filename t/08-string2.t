@@ -6,13 +6,13 @@ use Test::More;
 use Data::BitStream::BitList;
 my $v = Data::BitStream::BitList->new;
 
-is($v->getlen, 0);
-is($v->getpos, 0);
+is($v->len, 0);
+is($v->pos, 0);
 
 {
   $v->put_string('000101011');
   $v->put_string('111010100');
-  is($v->getlen, 18);
+  is($v->len, 18);
   $v->setpos(0);
   my $v1 = $v->read_string(6);
   is($v1, '000101');
@@ -24,7 +24,7 @@ is($v->getpos, 0);
   my $v4 = $v->read_string(18);
   is($v4, '000101011111010100');
   $v->setpos(0);
-  my $v5 = $v->vread(18);
+  my $v5 = $v->read(18);
   is($v5,22484);
 }
 

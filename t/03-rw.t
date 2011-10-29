@@ -6,17 +6,17 @@ use Test::More;
 use Data::BitStream::BitList;
 my $v = Data::BitStream::BitList->new;
 
-is($v->getlen, 0);
-is($v->getpos, 0);
+is($v->len, 0);
+is($v->pos, 0);
 
 foreach my $n (1 .. 8) {
-  $v->vwrite(16, 0x4225 | ($n << 12));
+  $v->write(16, 0x4225 | ($n << 12));
 }
 #$v->dump();
 
 $v->setpos(0);
 foreach my $n (1 .. 8) {
-  my $value = $v->vread(16);
+  my $value = $v->read(16);
   is($value, 0x4225 | ($n << 12));
 }
 

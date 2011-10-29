@@ -6,14 +6,14 @@ use Test::More;
 use Data::BitStream::BitList;
 my $v = Data::BitStream::BitList->new;
 
-is($v->getlen, 0);
-is($v->getpos, 0);
+is($v->len, 0);
+is($v->pos, 0);
 
 {
   $v->put_string('000101011');
-  is($v->getlen, 9);
+  is($v->len, 9);
   $v->setpos(0);
-  my $value = $v->vread(9);
+  my $value = $v->read(9);
   is($value, 43);
 }
 

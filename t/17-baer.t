@@ -6,23 +6,18 @@ use Test::More;
 use Data::BitStream::BitList;
 my $v = Data::BitStream::BitList->new;
 
-is($v->getlen, 0);
-is($v->getpos, 0);
+is($v->len, 0);
+is($v->pos, 0);
 
+my @a = 0 .. 257;
+my $nitems = scalar @a;
 foreach my $k (-32 .. 32) {
-  foreach my $n (0 .. 257) {
-    $v->put_baer($k, $n);
-  }
+  $v->put_baer($k, @a);
 }
-
-#$v->dump();
 
 $v->setpos(0);
 foreach my $k (-32 .. 32) {
-  foreach my $n (0 .. 257) {
-    my $value = $v->get_baer($k);
-    is($value, $n);
-  }
+  is_deeply( [$v->get_baer($k, $nitems)], \@a, "baer($k) 0-257");
 }
 
 done_testing;

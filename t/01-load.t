@@ -11,9 +11,9 @@ can_ok('Data::BitStream::BitList' => 'new');
 
 my $v = new_ok('Data::BitStream::BitList' => [100]);
 
-is($v->getlen, 0);
-is($v->getpos, 0);
+is($v->len, 0);
+is($v->pos, 0);
 
-$v->vwrite(10, 5);
+$v->write(10, 5);
 
 done_testing;

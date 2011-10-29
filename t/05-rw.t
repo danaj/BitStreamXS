@@ -6,22 +6,18 @@ use Test::More;
 use Data::BitStream::BitList;
 my $v = Data::BitStream::BitList->new;
 
-is($v->getlen, 0);
-is($v->getpos, 0);
+is($v->len, 0);
+is($v->pos, 0);
 
-foreach my $b (8 .. 64) {
-  foreach my $n (0 .. 129) {
-    $v->vwrite($b, $n);
-  }
+my @a = 0 .. 255;
+my $nitems = scalar @a;
+foreach my $k (8 .. $v->maxbits) {
+  $v->put_binword($k, @a);
 }
-#$v->dump();
 
 $v->setpos(0);
-foreach my $b (8 .. 64) {
-  foreach my $n (0 .. 129) {
-    my $value = $v->vread($b);
-    is($value, $n);
-  }
+foreach my $k (8 .. $v->maxbits) {
+  is_deeply( [$v->get_binword($k, $nitems)], \@a, "binword($k) 0-255");
 }
 
 done_testing;
