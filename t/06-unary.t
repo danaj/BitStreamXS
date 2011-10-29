@@ -4,8 +4,8 @@ use warnings;
 
 use Test::More  tests => 258;
 
-use Data::BitStream::BitList;
-my $v = Data::BitStream::BitList->new;
+use Data::BitStream::XS;
+my $v = Data::BitStream::XS->new;
 
 foreach my $n (0 .. 257) {
   $v->put_unary($n);

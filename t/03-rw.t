@@ -4,8 +4,8 @@ use warnings;
 
 use Test::More  tests => 8;
 
-use Data::BitStream::BitList;
-my $v = Data::BitStream::BitList->new;
+use Data::BitStream::XS;
+my $v = Data::BitStream::XS->new;
 
 foreach my $n (1 .. 8) {
   $v->write(16, 0x4225 | ($n << 12));

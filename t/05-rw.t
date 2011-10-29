@@ -2,8 +2,8 @@
 use strict;
 use warnings;
 
-use Data::BitStream::BitList;
-my $v = Data::BitStream::BitList->new;
+use Data::BitStream::XS;
+my $v = Data::BitStream::XS->new;
 
 use Test::More;
 plan tests => ($v->maxbits - 8 + 1);

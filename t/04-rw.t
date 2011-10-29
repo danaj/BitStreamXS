@@ -3,8 +3,8 @@ use strict;
 use warnings;
 
 use Test::More tests => 130;
-use Data::BitStream::BitList;
-my $v = Data::BitStream::BitList->new;
+use Data::BitStream::XS;
+my $v = Data::BitStream::XS->new;
 
 foreach my $n (0 .. 129) {
   $v->write(8, $n);

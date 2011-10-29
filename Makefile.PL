@@ -1,8 +1,8 @@
 use ExtUtils::MakeMaker;
 WriteMakefile(
-    NAME         => 'Data::BitStream::BitList',
+    NAME         => 'Data::BitStream::XS',
     ABSTRACT     => 'A class implementing a stream of bits and coding methods',
-    VERSION_FROM => 'lib/Data/BitStream/BitList.pm',
+    VERSION_FROM => 'lib/Data/BitStream/XS.pm',
 
     ($ExtUtils::MakeMaker::VERSION >= 6.3002
       ? ('LICENSE'=> 'perl') : ()),
@@ -13,7 +13,7 @@ WriteMakefile(
     LIBS         => [''],   # e.g., '-lm' 
     DEFINE       => '',     # e.g., '-DHAVE_SOMETHING' 
     INC          => '',     # e.g., '-I/usr/include/other' 
-    OBJECT       => 'bitlist.o BitList.o',
+    OBJECT       => 'bitlist.o XS.o',
 
     PREREQ_PM => {
                     'Test::More'       => '0.47',

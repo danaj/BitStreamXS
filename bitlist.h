@@ -40,8 +40,8 @@ extern void      DESTROY        (BitList *pVector);
 
 extern int       resize         (BitList *l, int bits);
 
-extern int       set_len        (BitList *l, int newlen);
-extern int       set_pos        (BitList *l, int newpos);
+extern int       _set_len       (BitList *l, int newlen);
+extern int       _set_pos       (BitList *l, int newpos);
 
 extern void      read_open      (BitList *l);
 extern void      write_open     (BitList *l);

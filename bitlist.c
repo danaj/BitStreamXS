@@ -121,7 +121,7 @@ void dump(BitList *list)
   }
 }
 
-int set_len(BitList *list, int newlen)
+int _set_len(BitList *list, int newlen)
 {
   if ( (newlen < 0) || (newlen > list->maxlen) )
     Perl_croak("invalid length: %d", newlen);
@@ -129,7 +129,7 @@ int set_len(BitList *list, int newlen)
     list->len = newlen;
   return list->len;
 }
-int set_pos(BitList *list, int newpos)
+int _set_pos(BitList *list, int newpos)
 {
   assert(list != 0);
   if ( (newpos < 0) || (newpos > list->len) )
@@ -148,6 +148,7 @@ void read_open(BitList *list)
   if (list->is_writing)
     write_close(list);
   // TODO: file stuff
+  assert(list->is_writing == 0);
 }
 
 void write_open(BitList *list)
@@ -159,6 +160,7 @@ void write_open(BitList *list)
   if (!list->is_writing) {
     list->is_writing = 1;
   }
+  assert(list->is_writing == 1);
 }
 
 void write_close(BitList *list)
@@ -168,6 +170,7 @@ void write_close(BitList *list)
     list->pos = list->len;
     // TODO: file stuff
   }
+  assert(list->is_writing == 0);
 }
 
 WTYPE sread(BitList *list, int bits)

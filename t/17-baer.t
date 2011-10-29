@@ -4,8 +4,8 @@ use warnings;
 
 use Test::More  tests => 65;
 
-use Data::BitStream::BitList;
-my $v = Data::BitStream::BitList->new;
+use Data::BitStream::XS;
+my $v = Data::BitStream::XS->new;
 
 my @a = 0 .. 257;
 my $nitems = scalar @a;

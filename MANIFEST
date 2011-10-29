@@ -1,7 +1,7 @@
 bitlist.c
 bitlist.h
-BitList.xs
-lib/Data/BitStream/BitList.pm
+XS.xs
+lib/Data/BitStream/XS.pm
 MANIFEST
 Makefile.PL
 t/01-load.t
@@ -27,3 +27,4 @@ t/18-evenrodeh.t
 t/50-stream1.t
 typemap
 README
+TODO

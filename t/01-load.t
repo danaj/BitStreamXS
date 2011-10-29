@@ -4,13 +4,13 @@ use warnings;
 
 use Test::More  tests => 5;
 
-require_ok 'Data::BitStream::BitList';
+require_ok 'Data::BitStream::XS';
 
-can_ok('Data::BitStream::BitList' => 'new');
+can_ok('Data::BitStream::XS' => 'new');
 
-#my $v = new_ok('Data::BitStream::BitList');
-my $v = Data::BitStream::BitList->new;
-isa_ok $v, 'Data::BitStream::BitList';
+#my $v = new_ok('Data::BitStream::XS');
+my $v = Data::BitStream::XS->new;
+isa_ok $v, 'Data::BitStream::XS';
 
 is($v->len, 0, 'starting len 0');
 is($v->pos, 0, 'starting pos 0');

@@ -3,11 +3,11 @@ use strict;
 use warnings;
 
 use Test::More  tests => 35;
-use Data::BitStream::BitList;
+use Data::BitStream::XS;
 
 
 {
-  my $stream = Data::BitStream::BitList->new;
+  my $stream = Data::BitStream::XS->new;
   die unless defined $stream;
 
   my $status;
