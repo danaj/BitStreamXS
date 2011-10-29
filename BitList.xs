@@ -29,11 +29,6 @@ dump(list)
 	Data::BitStream::BitList list
 
 void
-reserve_bits(list, n)
-	Data::BitStream::BitList list
-	int	 n
-
-void
 resize(list, n)
 	Data::BitStream::BitList list
 	int	 n
@@ -108,8 +103,7 @@ read_string(list, bits)
     if (buf == 0) {
       XSRETURN_UNDEF;
     } else {
-      //RETVAL = newSVpvn(buf, bits);
-      RETVAL = newSVpv(buf, 0);
+      RETVAL = newSVpvn(buf, bits);
       free(buf);
     }
   OUTPUT:
@@ -123,14 +117,20 @@ to_raw(list)
     if (buf == 0) {
       XSRETURN_UNDEF;
     } else {
-      int bpw = 8 * sizeof(WTYPE);
-      int words = (getlen(list) + (bpw-1)) / bpw;
-      int bytes = words * sizeof(WTYPE);
+      size_t bpw = 8 * sizeof(WTYPE);
+      size_t words = (getlen(list) + (bpw-1)) / bpw;
+      size_t bytes = words * sizeof(WTYPE);
       RETVAL = newSVpvn(buf, bytes);
       free(buf);
     }
   OUTPUT:
     RETVAL
+
+void
+from_raw(list, str, bits)
+	Data::BitStream::BitList list
+	char* str
+	int bits
 
 
 
@@ -246,6 +246,112 @@ void
 put_levenstein(list, v)
 	Data::BitStream::BitList list
 	unsigned long	 v
+
+unsigned long
+get_evenrodeh(list)
+	Data::BitStream::BitList list
+  CODE:
+    if (getpos(list) >= getlen(list))
+      XSRETURN_UNDEF;
+    else
+      RETVAL = get_evenrodeh(list);
+  OUTPUT:
+    RETVAL
+
+void
+put_evenrodeh(list, v)
+	Data::BitStream::BitList list
+	unsigned long	 v
+
+unsigned long
+get_baer(list, k)
+	Data::BitStream::BitList list
+        int k
+  CODE:
+    if (getpos(list) >= getlen(list))
+      XSRETURN_UNDEF;
+    else
+      RETVAL = get_baer(list, k);
+  OUTPUT:
+    RETVAL
+
+void
+put_baer(list, k, v)
+	Data::BitStream::BitList list
+	int k
+	unsigned long v
+
+unsigned long
+get_rice(list, k)
+	Data::BitStream::BitList list
+        int k
+  CODE:
+    if (getpos(list) >= getlen(list))
+      XSRETURN_UNDEF;
+    else
+      RETVAL = get_rice(list, k);
+  OUTPUT:
+    RETVAL
+
+void
+put_rice(list, k, v)
+	Data::BitStream::BitList list
+	int k
+	unsigned long v
+
+unsigned long
+get_gamma_rice(list, k)
+	Data::BitStream::BitList list
+        int k
+  CODE:
+    if (getpos(list) >= getlen(list))
+      XSRETURN_UNDEF;
+    else
+      RETVAL = get_gamma_rice(list, k);
+  OUTPUT:
+    RETVAL
+
+void
+put_gamma_rice(list, k, v)
+	Data::BitStream::BitList list
+	int k
+	unsigned long v
+
+unsigned long
+get_golomb(list, m)
+	Data::BitStream::BitList list
+        unsigned long m
+  CODE:
+    if (getpos(list) >= getlen(list))
+      XSRETURN_UNDEF;
+    else
+      RETVAL = get_golomb(list, m);
+  OUTPUT:
+    RETVAL
+
+void
+put_golomb(list, m, v)
+	Data::BitStream::BitList list
+	unsigned long m
+	unsigned long v
+
+unsigned long
+get_gamma_golomb(list, m)
+	Data::BitStream::BitList list
+        unsigned long m
+  CODE:
+    if (getpos(list) >= getlen(list))
+      XSRETURN_UNDEF;
+    else
+      RETVAL = get_gamma_golomb(list, m);
+  OUTPUT:
+    RETVAL
+
+void
+put_gamma_golomb(list, m, v)
+	Data::BitStream::BitList list
+	unsigned long m
+	unsigned long v
 
 unsigned long
 get_adaptive_gamma_rice(list, k)

@@ -9,15 +9,16 @@ my $v = Data::BitStream::BitList->new;
 is($v->getlen, 0);
 is($v->getpos, 0);
 
-foreach my $n (1 .. 8) {
-  $v->vwrite(16, 0x4225 | ($n << 12));
+foreach my $n (0 .. 257) {
+  $v->put_evenrodeh($n);
 }
+
 #$v->dump();
 
 $v->setpos(0);
-foreach my $n (1 .. 8) {
-  my $value = $v->vread(16);
-  is($value, 0x4225 | ($n << 12));
+foreach my $n (0 .. 257) {
+  my $value = $v->get_evenrodeh;
+  is($value, $n);
 }
 
 done_testing;

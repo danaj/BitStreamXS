@@ -9,15 +9,20 @@ my $v = Data::BitStream::BitList->new;
 is($v->getlen, 0);
 is($v->getpos, 0);
 
-foreach my $n (1 .. 8) {
-  $v->vwrite(16, 0x4225 | ($n << 12));
+foreach my $k (0 .. 31) {
+  foreach my $n (0 .. 257) {
+    $v->put_rice($k, $n);
+  }
 }
+
 #$v->dump();
 
 $v->setpos(0);
-foreach my $n (1 .. 8) {
-  my $value = $v->vread(16);
-  is($value, 0x4225 | ($n << 12));
+foreach my $k (0 .. 31) {
+  foreach my $n (0 .. 257) {
+    my $value = $v->get_rice($k);
+    is($value, $n);
+  }
 }
 
 done_testing;
