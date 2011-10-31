@@ -19,7 +19,7 @@ typedef enum
    eModeW,
    eModeWO,
    eModeRW,
-   eModeA,
+   eModeA
 } FileMode;
 
 typedef struct
@@ -58,6 +58,8 @@ extern char*     read_string    (BitList *l, int bits);
 
 extern char*     to_raw         (BitList *l);
 extern void      from_raw       (BitList *l, char* str, int bits);
+
+extern void      xput_stream    (BitList *l, BitList *s);
 
 extern WTYPE     get_unary      (BitList *l);
 extern WTYPE     get_unary1     (BitList *l);

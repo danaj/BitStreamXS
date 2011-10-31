@@ -69,12 +69,15 @@ sub from_store {
 sub put_stream {
   my $self = shift;
   my $source = shift;
-  return 0 unless defined $source && $source->can('to_string');
+  return 0 unless defined $source;
 
-  # in an implementation, you could check if ref $source eq __PACKAGE__
-  # and do something special.
-
-  $self->put_string($source->to_string);
+  if (ref $source eq __PACKAGE__) {
+    # optimized method for us.
+    $self->xput_stream($source);
+  } else {
+    return 0 unless $source->can('to_string');
+    $self->put_string($source->to_string);
+  }
   1;
 }
 

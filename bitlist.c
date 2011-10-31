@@ -371,6 +371,11 @@ void put_string(BitList *list, char* s)
   }
 }
 
+#if 0
+static int  str_map_init = 0;
+static char str_map[256][8];
+#endif
+
 char* read_string(BitList *list, int bits)
 {
   assert(bits >= 0);
@@ -466,6 +471,39 @@ void from_raw(BitList *list, char* str, int bits)
     }
     list->len = bits;
   }
+}
+
+void xput_stream (BitList *list, BitList *src)
+{
+  if (src->len <= 0)
+    return;
+
+  /* rewind_for_read(src) */
+  if (src->is_writing)
+    write_close(src);
+  src->pos = 0;
+
+  assert(list->is_writing);
+  assert(!src->is_writing);
+
+  expand_list(list, list->len + src->len);
+
+  if (list->len == 0) {
+    // Copy direct.  Must copy whole words.
+    memcpy(list->data, src->data, sizeof(WTYPE) * NWORDS(src->len));
+    list->len = src->len;
+    src->pos = src->len;
+    return;
+  }
+
+  /* sread/swrite */
+  int bits = src->len;
+  while (bits >= BITS_PER_WORD) {
+    swrite(list, BITS_PER_WORD,  sread(src, BITS_PER_WORD)  );
+    bits -= BITS_PER_WORD;
+  }
+  if (bits > 0)
+    swrite(list, bits,  sread(src, bits)  );
 }
 
 

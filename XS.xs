@@ -23,16 +23,22 @@
  */
 #define BLSTGROW 64
 
+/* Doing this cleanly without varargs would be frustrating.
+ * It means strict C89 compilers won't work.
+ * I should probably replace it at some point.
+ */
 #define GET_CODEVP(codename, nargs, ...) \
+   { \
     bool wantarray = (GIMME_V == G_ARRAY); \
-    if ( (list == 0) || (count == 0) || (list->pos >= list->len) ) \
+    unsigned long v; \
+    int c = 0; \
+    if ( (list == 0) || (count == 0) || (list->pos >= list->len) ) { \
       if (wantarray) { XSRETURN_EMPTY; } else { XSRETURN_UNDEF; } \
+    } \
     if (list->is_writing) { \
       croak("read while writing with %s", #codename); \
       if (wantarray) { XSRETURN_EMPTY; } else { XSRETURN_UNDEF; } \
     } \
-    unsigned long v; \
-    int c = 0; \
     if (count < 0)  count = MAX_COUNT; \
     if (!wantarray) { \
       v = 0; \
@@ -51,7 +57,8 @@
         v = get_ ## codename(__VA_ARGS__); \
         PUSHs(sv_2mortal(newSVuv(  v  ))); \
       } \
-    }
+    } \
+   }
 
 #define PUT_CODEVP(codename, nargs, ...) \
     if (!list->is_writing) { \
@@ -176,6 +183,8 @@ write_close(IN Data::BitStream::XS list)
 
 unsigned long
 read(IN Data::BitStream::XS list, IN int bits, IN char* flags = 0)
+  PREINIT:
+    int readahead;
   CODE:
     if (list->is_writing) {
       croak("read while writing");
@@ -185,7 +194,7 @@ read(IN Data::BitStream::XS list, IN int bits, IN char* flags = 0)
       croak("invalid bits: %d", bits);
       XSRETURN_UNDEF;
     }
-    int readahead = (flags != 0) && (strcmp(flags, "readahead") == 0);
+    readahead = (flags != 0) && (strcmp(flags, "readahead") == 0);
     if (readahead) {
       if (list->pos >= list->len)
         XSRETURN_UNDEF;
@@ -241,6 +250,8 @@ put_string(IN Data::BitStream::XS list, ...)
 
 SV *
 read_string(IN Data::BitStream::XS list, IN int bits)
+  PREINIT:
+    char* buf;
   CODE:
     if (list->is_writing)
       { croak("read while writing"); XSRETURN_UNDEF; }
@@ -248,7 +259,7 @@ read_string(IN Data::BitStream::XS list, IN int bits)
       { croak("invalid bits: %d", bits); XSRETURN_UNDEF; }
     if (bits > (list->len - list->pos))
       { croak("short read"); XSRETURN_UNDEF; }
-    char* buf = read_string(list, bits);
+    buf = read_string(list, bits);
     if (buf == 0) {
       XSRETURN_UNDEF;
     } else {
@@ -260,14 +271,14 @@ read_string(IN Data::BitStream::XS list, IN int bits)
 
 SV*
 to_raw(IN Data::BitStream::XS list)
+  PREINIT:
+    char* buf;
   CODE:
-    char* buf = to_raw(list);
+    buf = to_raw(list);
     if (buf == 0) {
       XSRETURN_UNDEF;
     } else {
-      //size_t bpw = 8 * sizeof(WTYPE);
-      //size_t words = (list->len + (bpw-1)) / bpw;
-      //size_t bytes = words * sizeof(WTYPE);
+      /* Return just the necessary number of bytes */
       size_t bytes = NBYTES(list->len);
       RETVAL = newSVpvn(buf, bytes);
       free(buf);
@@ -278,6 +289,14 @@ to_raw(IN Data::BitStream::XS list)
 void
 from_raw(IN Data::BitStream::XS list, IN char* str, IN int bits)
 
+void
+xput_stream(IN Data::BitStream::XS list, IN Data::BitStream::XS source)
+  CODE:
+    if (!list->is_writing) {
+      croak("write while reading");
+    } else {
+      xput_stream(list, source);
+    }
 
 
 void
@@ -556,7 +575,7 @@ get_arice_sub(list, coderef, k, count=1)
   PREINIT:
     SV* self = ST(0);
     SV* cref = 0;
-    SV* stack_k_ptr = ST(2);  // Remember position of k, it will be modified
+    SV* stack_k_ptr = ST(2);  /* Remember position of k, it will be modified */
   PPCODE:
     if ( (k < 0) || (k > BITS_PER_WORD) ) {
       croak("invalid parameters: adaptive_gamma_rice %d", k);
@@ -607,8 +626,10 @@ put_arice_sub(list, coderef, k, ...)
 
 void
 get_startstop(IN Data::BitStream::XS list, IN SV* p, IN int count = 1)
+  PREINIT:
+    char* map;
   PPCODE:
-    char* map = make_startstop_prefix_map(p);
+    map = make_startstop_prefix_map(p);
     if (map == 0) {
       XSRETURN_UNDEF;
     }
@@ -618,8 +639,10 @@ get_startstop(IN Data::BitStream::XS list, IN SV* p, IN int count = 1)
 
 void
 put_startstop(IN Data::BitStream::XS list, IN SV* p, ...)
+  PREINIT:
+    char* map;
   CODE:
-    char* map = make_startstop_prefix_map(p);
+    map = make_startstop_prefix_map(p);
     if (map == 0)
        return;
     PUT_CODEVP(startstop, 1, list, map);
