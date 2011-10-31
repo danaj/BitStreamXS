@@ -27,6 +27,8 @@ t/17-baer.t
 t/18-evenrodeh.t
 t/19-boldivigna.t
 t/20-startstep.t
+t/21-putstream.t
+t/22-text.t
 t/50-stream1.t
 typemap
 README

@@ -35,7 +35,8 @@ typedef struct
    int       is_writing;
 } BitList;
 
-extern BitList*  new            (int initial_maxlen);
+extern BitList*  new            (FileMode mode, char* file, int fheaderlines, int initial_size);
+
 extern void      DESTROY        (BitList *pVector);
 
 extern int       resize         (BitList *l, int bits);

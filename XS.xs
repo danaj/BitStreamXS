@@ -85,9 +85,41 @@ MODULE = Data::BitStream::XS	PACKAGE = Data::BitStream::XS
 PROTOTYPES: ENABLE
 
 Data::BitStream::XS
-new (IN char* package, IN int nBits = 0)
+new (IN char* package, ...)
+  PREINIT:
+    int i;
+    FileMode mode = eModeRW;
+    char* file = 0;
+    int   fheaderlines = 0;
+    int   initial_bits = 0;
   CODE:
-    RETVAL = new(nBits);
+    if (items > 1) {
+      if ( (items % 2) == 0)
+        croak("new takes a hash of options");
+      for (i = 1; i < items; i += 2) {
+        STRLEN klen, vlen;
+        char* key = SvPV(ST(i+0), klen);
+        if (!strcmp(key, "mode")) {
+          char* val = SvPV(ST(i+1), vlen);
+          if     ((!strcmp(val,"r" ))||(!strcmp(val,"read")))      mode=eModeR;
+          else if((!strcmp(val,"ro"))||(!strcmp(val,"readonly")))  mode=eModeRO;
+          else if((!strcmp(val,"w" ))||(!strcmp(val,"write")))     mode=eModeW;
+          else if((!strcmp(val,"wo"))||(!strcmp(val,"writeonly"))) mode=eModeWO;
+          else if((!strcmp(val,"a" ))||(!strcmp(val,"append")))    mode=eModeA;
+          else if((!strcmp(val,"rw"))||(!strcmp(val,"rdwr"))
+                                     ||(!strcmp(val,"readwrite"))) mode=eModeRW;
+          else
+            croak("Unknown mode: %s", val);
+        } else if (!strcmp(key, "file")) {
+          file = SvPV(ST(i+1), vlen);
+        } else if (!strcmp(key, "fheaderlines")) {
+          fheaderlines = SvIV(ST(i+1));
+        } else if (!strcmp(key, "size")) {
+          initial_bits = SvIV(ST(i+1));
+        }
+      }
+    }
+    RETVAL = new(mode, file, fheaderlines, initial_bits);
   OUTPUT:
     RETVAL
 
@@ -231,7 +263,7 @@ write(IN Data::BitStream::XS list, IN int bits, IN unsigned long v)
       croak("write while reading");
       XSRETURN_UNDEF;
     }
-    if ( (bits <= 0) || (bits > BITS_PER_WORD) ) {
+    if ( (bits <= 0) || ( (v > 1) && (bits > BITS_PER_WORD) ) ) {
       croak("invalid bits: %d", bits);
       XSRETURN_UNDEF;
     }

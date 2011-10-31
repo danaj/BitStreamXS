@@ -13,12 +13,13 @@ static int verbose = 0;
 
 #define BIT_STACK_SIZE 32
 
-static void expand_list(BitList *list, int len)
+static inline void expand_list(BitList *list, int len)
 {
   if ( len > list->maxlen )
     resize(list, 1.10 * (len+4096) );
 }
 
+// This is for debugging
 static char binstr[BITS_PER_WORD+1];
 static char* word_to_bin(WTYPE word)
 {
@@ -87,7 +88,12 @@ static void call_put_sub(SV* self, SV* code, BitList* list, WTYPE value)
 }
 
 
-BitList *new(int bits)
+BitList *new(
+  FileMode mode,
+  char*    file,
+  int      fheaderlines,
+  int      initial_bits
+)
 {
   BitList *list = (BitList *) malloc(sizeof (BitList));
   if (list == 0)
@@ -98,10 +104,10 @@ BitList *new(int bits)
   list->len = 0;
   list->maxlen = 0;
 
-  list->mode = eModeRW;
-  list->file = 0;
+  list->mode = mode;
+  list->file = file;
   list->file_header = 0;
-  list->file_header_lines = 0;
+  list->file_header_lines = fheaderlines;
 
   list->is_writing = 0;
   switch (list->mode) {
@@ -122,14 +128,15 @@ BitList *new(int bits)
   if (list->mode == eModeA)
     write_open(list);
 
-  if (bits > 0)
-    (void) resize(list, bits);
+  if (initial_bits > 0)
+    (void) resize(list, initial_bits);
 
   return list;
 }
 
 int resize(BitList *list, int bits)
 {
+  assert(bits >= 0);
   if (bits == 0) {
     // erase everything
     if (list->data != 0) {
@@ -205,7 +212,10 @@ void read_open(BitList *list)
   }
   if (list->is_writing)
     write_close(list);
-  // TODO: file stuff
+  if (list->file != 0) {
+    fprintf(stderr, "Read file %s ... \n", list->file);
+    // TODO: file stuff
+  }
   assert(list->is_writing == 0);
 }
 
@@ -224,9 +234,24 @@ void write_open(BitList *list)
 void write_close(BitList *list)
 {
   if (list->is_writing) {
+    if (list->file != 0) {
+      char* buf = to_raw(list);
+      if (buf == 0)
+        return;
+      FILE* fh = fopen(list->file, "w");
+      if (!fh) {
+        Perl_croak("Cannot open file %s", list->file);
+      } else {
+        if (list->file_header != 0)
+          fprintf(fh, "%s\n", list->file_header);
+        fprintf(fh, "%lu\n", list->len);
+        fwrite(buf, 1, NBYTES(list->len), fh);
+      }
+      free(buf);
+      fclose(fh);
+    }
     list->is_writing = 0;
     list->pos = list->len;
-    // TODO: file stuff
   }
   assert(list->is_writing == 0);
 }
@@ -238,7 +263,25 @@ WTYPE sread(BitList *list, int bits)
     return 0UL;
   }
   assert( (list->pos + bits) <= list->len );
+#if 0
   WTYPE v = sreadahead(list, bits);
+#else
+  WTYPE v;
+  int wpos = list->pos / BITS_PER_WORD;
+  int bpos = list->pos % BITS_PER_WORD;
+  int wlen = BITS_PER_WORD - bits;
+
+  if (bpos <= wlen) {
+    // Single word read
+    v = (list->data[wpos] >> (wlen-bpos)) & (~0UL >> wlen);
+  } else {
+    // Double word read
+    int bits1 = BITS_PER_WORD - bpos;
+    int bits2 = bits - bits1;
+    v =   ( (list->data[wpos+0] & (~0UL >> bpos)) << bits2 )
+        | ( list->data[wpos+1] >> (BITS_PER_WORD - bits2) );
+  }
+#endif
   list->pos += bits;
   return v;
 }

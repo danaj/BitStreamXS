@@ -13,7 +13,7 @@ BEGIN {
 # parent is cleaner, and in the Perl 5.10.1 / 5.12.0 core, but not earlier.
 # use parent qw( Exporter );
 use base qw( Exporter );
-our @EXPORT_OK = qw();
+our @EXPORT_OK = qw( code_is_supported code_is_universal );
 
 BEGIN {
   eval {
@@ -129,6 +129,7 @@ sub put_arice {
 sub get_adaptive_gamma_rice { shift->get_arice(@_); }
 sub put_adaptive_gamma_rice { shift->put_arice(@_); }
 
+
 # Map Start-Step-Stop codes to Start/Stop codes.
 # See Data::BitStream::Code::StartStop for more detail
 
@@ -175,6 +176,227 @@ sub get_startstepstop {
   die "unexpected death" unless scalar @pmap >= 2;
   return $self->get_startstop( [@pmap], @_ );
 }
+
+################################################################################
+#
+#                               TEXT METHODS
+#
+################################################################################
+
+# The Data::BitStream class does this all dynamically and gets its info from
+# all Data::BitStream::Code::* files that have been loaded as roles.
+# We're going to do it all statically, which isn't nearly as cool.
+
+my @initinfo = (
+    { package   => __PACKAGE__,
+      name      => 'Unary',
+      universal => 0,
+      params    => 0,
+      encodesub => sub {shift->put_unary(@_)},
+      decodesub => sub {shift->get_unary(@_)}, },
+    { package   => __PACKAGE__,
+      name      => 'Unary1',
+      universal => 0,
+      params    => 0,
+      encodesub => sub {shift->put_unary1(@_)},
+      decodesub => sub {shift->get_unary1(@_)}, },
+    { package   => __PACKAGE__,
+      name      => 'BinWord',
+      universal => 0,
+      params    => 1,
+      encodesub => sub {shift->put_binword(@_)},
+      decodesub => sub {shift->get_binword(@_)}, },
+    { package   => __PACKAGE__,
+      name      => 'Gamma',
+      universal => 1,
+      params    => 0,
+      encodesub => sub {shift->put_gamma(@_)},
+      decodesub => sub {shift->get_gamma(@_)}, },
+    { package   => __PACKAGE__,
+      name      => 'Delta',
+      universal => 1,
+      params    => 0,
+      encodesub => sub {shift->put_delta(@_)},
+      decodesub => sub {shift->get_delta(@_)}, },
+    { package   => __PACKAGE__,
+      name      => 'Omega',
+      universal => 1,
+      params    => 0,
+      encodesub => sub {shift->put_omega(@_)},
+      decodesub => sub {shift->get_omega(@_)}, },
+    { package   => __PACKAGE__,
+      name      => 'EvenRodeh',
+      universal => 1,
+      params    => 0,
+      encodesub => sub {shift->put_evenrodeh(@_)},
+      decodesub => sub {shift->get_evenrodeh(@_)}, },
+    { package   => __PACKAGE__,
+      name      => 'Levenstein',
+      aliases   => ['Levenshtein'],
+      universal => 1,
+      params    => 0,
+      encodesub => sub {shift->put_levenstein(@_)},
+      decodesub => sub {shift->get_levenstein(@_)}, },
+    { package   => __PACKAGE__,
+      name      => 'Fibonacci',
+      universal => 1,
+      params    => 0,
+      encodesub => sub {shift->put_fib(@_)},
+      decodesub => sub {shift->get_fib(@_)}, },
+    { package   => __PACKAGE__,
+      name      => 'Golomb',
+      universal => 1,
+      params    => 1,
+      encodesub => sub {shift->put_golomb(@_)},
+      decodesub => sub {shift->get_golomb(@_)}, },
+    { package   => __PACKAGE__,
+      name      => 'Rice',
+      universal => 1,
+      params    => 1,
+      encodesub => sub {shift->put_rice(@_)},
+      decodesub => sub {shift->get_rice(@_)}, },
+    { package   => __PACKAGE__,
+      name      => 'ExpGolomb',
+      universal => 1,
+      params    => 1,
+      encodesub => sub {shift->put_expgolomb(@_)},
+      decodesub => sub {shift->get_expgolomb(@_)}, },
+    { package   => __PACKAGE__,
+      name      => 'GammaGolomb',
+      universal => 1,
+      params    => 1,
+      encodesub => sub {shift->put_gammagolomb(@_)},
+      decodesub => sub {shift->get_gammagolomb(@_)}, },
+    { package   => __PACKAGE__,
+      name      => 'ARice',
+      universal => 1,
+      params    => 1,
+      encodesub => sub {shift->put_arice(@_)},
+      decodesub => sub {shift->get_arice(@_)}, },
+    { package   => __PACKAGE__,
+      name      => 'Baer',
+      universal => 1,
+      params    => 1,
+      encodesub => sub {shift->put_baer(@_)},
+      decodesub => sub {shift->get_baer(@_)}, },
+    { package   => __PACKAGE__,
+      name      => 'BoldiVigna',
+      universal => 1,
+      params    => 1,
+      encodesub => sub {shift->put_boldivigna(@_)},
+      decodesub => sub {shift->get_boldivigna(@_)}, },
+    { package   => __PACKAGE__,
+      name      => 'StartStop',
+      universal => 1,
+      params    => 1,
+      encodesub => sub {shift->put_startstop([split('-',shift)], @_)},
+      decodesub => sub {shift->get_startstop([split('-',shift)], @_)}, },
+    { package   => __PACKAGE__,
+      name      => 'StartStepStop',
+      universal => 1,
+      params    => 1,
+      encodesub => sub {shift->put_startstepstop([split('-',shift)], @_)},
+      decodesub => sub {shift->get_startstepstop([split('-',shift)], @_)}, },
+   );
+my %codeinfo;
+
+sub add_code {
+  my $rinfo = shift;
+  die "add_code needs a hash ref" unless defined $rinfo && ref $rinfo eq 'HASH';
+  foreach my $p (qw(package name universal params encodesub decodesub)) {
+    die "invalid registration: missing $p" unless defined $$rinfo{$p};
+  }
+  my $name = lc $$rinfo{'name'};
+  if (defined $codeinfo{$name}) {
+    return 1 if $codeinfo{$name}{'package'} eq $$rinfo{'package'};
+    die "module $$rinfo{'package'} trying to reuse code name '$name' already in 
+use by $codeinfo{$name}{'package'}";
+  }
+  $codeinfo{$name} = $rinfo;
+  1;
+}
+
+sub find_code {
+  my $code = lc shift;
+
+  if (scalar @initinfo > 0) {
+    foreach my $rinfo (@initinfo) {
+      add_code($rinfo);
+    }
+    @initinfo = ();
+  }
+
+  return $codeinfo{$code} if defined $codeinfo{$code};
+
+  # We're not poking around looking for more like Data::BitStream does.
+  undef;
+}
+
+sub code_is_supported {
+  my $code = lc shift;
+  my $param;  $param = $1 if $code =~ s/\((.+)\)$//;
+  return defined find_code($code);
+}
+
+sub code_is_universal {
+  my $code = lc shift;
+  my $param;  $param = $1 if $code =~ s/\((.+)\)$//;
+  my $inforef = find_code($code);
+  if (!defined $inforef) {
+    warn "code_is_universal: unknown code '$code'\n";
+    return 0;
+  }
+  return $inforef->{'universal'};
+}
+
+# It would be nice to speed these up, but doing so isn't trivial.  I've added
+# a couple shortcuts for Unary and Gamma, but it isn't a generic solution.
+sub code_put {
+  my $self = shift;
+  my $code = lc shift;
+  if    ($code eq 'unary' ) { return $self->put_unary(@_); }
+  elsif ($code eq 'gamma' ) { return $self->put_gamma(@_); }
+  my $param;  $param = $1 if $code =~ s/\((.+)\)$//;
+  my $inforef = $codeinfo{$code};
+  $inforef = find_code($code) unless defined $inforef;
+  die "Unknown code $code" unless defined $inforef;
+  my $sub = $inforef->{'encodesub'};
+  die "No encoding sub for code $code!" unless defined $sub;
+  if ($inforef->{'params'}) {
+    die "Code $code needs a parameter" unless defined $param;
+    return $sub->($self, $param, @_);
+  } else {
+    die "Code $code does not have parameters" if defined $param;
+    return $sub->($self, @_);
+  }
+}
+
+sub code_get {
+  my $self = shift;
+  my $code = lc shift;
+  if    ($code eq 'unary' ) { return $self->get_unary(@_); }
+  elsif ($code eq 'gamma' ) { return $self->get_gamma(@_); }
+  my $param;  $param = $1 if $code =~ s/\((.+)\)$//;
+  my $inforef = $codeinfo{$code};
+  $inforef = find_code($code) unless defined $inforef;
+  die "Unknown code $code" unless defined $inforef;
+  my $sub = $inforef->{'decodesub'};
+  die "No decoding sub for code $code!" unless defined $sub;
+  if ($inforef->{'params'}) {
+    die "Code $code needs a parameter" unless defined $param;
+    return $sub->($self, $param, @_);
+  } else {
+    die "Code $code does not have parameters" if defined $param;
+    return $sub->($self, @_);
+  }
+}
+
+
+################################################################################
+#
+#                               CLASS METHODS
+#
+################################################################################
 
 1;
 
@@ -470,15 +692,6 @@ Reads/writes one or more values from the stream in Even-Rodeh coding.
 
 Reads/writes one or more values from the stream in Fibonacci coding.
 Specifically, the order C<m=2> C1 codes of Fraenkel and Klein.
-
-=item B< get_fib_c2([$count]) >
-
-=item B< put_fib_c2(@values) >
-
-Reads/writes one or more values from the stream in Fibonacci C2 coding.
-Specifically, the order C<m=2> C2 codes of Fraenkel and Klein.  Note that
-these codes are not prefix-free, hence they will not mix well with other
-codes in the same stream.
 
 =item B< get_golomb($m [, $count]) >
 
