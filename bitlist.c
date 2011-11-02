@@ -49,8 +49,6 @@ static WTYPE call_get_sub(SV* self, SV* code, BitList* list)
 
   if (count != 1)
     croak("get sub should return one value");
-  if (SvTRUE(ERRSV))
-    croak(SvPV_nolen(ERRSV));
 
   WTYPE v = POPul;                   // Get the returned value
 
@@ -78,9 +76,6 @@ static void call_put_sub(SV* self, SV* code, BitList* list, WTYPE value)
 
   count = call_sv(code, G_VOID);
   SPAGAIN;
-
-  if (SvTRUE(ERRSV))
-    croak(SvPV_nolen(ERRSV));
 
   PUTBACK;
   FREETMPS;
@@ -149,7 +144,7 @@ int resize(BitList *list, int bits)
     int newwords = NWORDS(bits);
     list->data = (WTYPE*) realloc(list->data, newwords * sizeof(WTYPE));
     if (list->data == 0) {
-      Perl_croak("failed to alloc %d bits", bits);
+      croak("failed to alloc %d bits", bits);
     } else if (newwords > oldwords) {
       // Zero out any new allocated space
       memset( list->data + oldwords,  0,  (newwords-oldwords)*sizeof(WTYPE) );
@@ -167,7 +162,7 @@ int resize(BitList *list, int bits)
 void DESTROY(BitList *list)
 {
   if (list == 0) {
-    Perl_croak("null object");
+    croak("null object");
   } else {
     if (list->is_writing)
       write_close(list);
@@ -182,14 +177,14 @@ void dump(BitList *list)
   int words = NWORDS(list->len);
   int i;
   for (i = 0; i < words; i++) {
-    fprintf(stderr, "%2d %08x\n", i, list->data[i]);
+    fprintf(stderr, "%2d %08lx\n", i, list->data[i]);
   }
 }
 
 int _set_len(BitList *list, int newlen)
 {
   if ( (newlen < 0) || (newlen > list->maxlen) )
-    Perl_croak("invalid length: %d", newlen);
+    croak("invalid length: %d", newlen);
   else
     list->len = newlen;
   return list->len;
@@ -198,7 +193,7 @@ int _set_pos(BitList *list, int newpos)
 {
   assert(list != 0);
   if ( (newpos < 0) || (newpos > list->len) )
-    Perl_croak("invalid position: %d", newpos);
+    croak("invalid position: %d", newpos);
   else
     list->pos = newpos;
   return list->pos;
@@ -207,7 +202,7 @@ int _set_pos(BitList *list, int newpos)
 void read_open(BitList *list)
 {
   if (list->mode == eModeRO) {
-    Perl_croak("read while stream opened writeonly");
+    croak("read while stream opened writeonly");
     return;
   }
   if (list->is_writing)
@@ -222,7 +217,7 @@ void read_open(BitList *list)
 void write_open(BitList *list)
 {
   if (list->mode == eModeRO) {
-    Perl_croak("write while stream opened readonly");
+    croak("write while stream opened readonly");
     return;
   }
   if (!list->is_writing) {
@@ -240,11 +235,11 @@ void write_close(BitList *list)
         return;
       FILE* fh = fopen(list->file, "w");
       if (!fh) {
-        Perl_croak("Cannot open file %s", list->file);
+        croak("Cannot open file %s", list->file);
       } else {
         if (list->file_header != 0)
           fprintf(fh, "%s\n", list->file_header);
-        fprintf(fh, "%lu\n", list->len);
+        fprintf(fh, "%d\n", list->len);
         fwrite(buf, 1, NBYTES(list->len), fh);
       }
       free(buf);
@@ -259,7 +254,7 @@ void write_close(BitList *list)
 WTYPE sread(BitList *list, int bits)
 {
   if ( (bits < 0) || (bits > BITS_PER_WORD) ) {
-    Perl_croak("invalid bits: %d", bits);
+    croak("invalid bits: %d", bits);
     return 0UL;
   }
   assert( (list->pos + bits) <= list->len );
@@ -289,7 +284,7 @@ WTYPE sread(BitList *list, int bits)
 WTYPE sreadahead(BitList *list, int bits)
 {
   if ( (bits < 0) || (bits > BITS_PER_WORD) ) {
-    Perl_croak("invalid bits: %d", bits);
+    croak("invalid bits: %d", bits);
     return 0UL;
   }
 
@@ -333,7 +328,7 @@ WTYPE sreadahead(BitList *list, int bits)
 void swrite(BitList *list, int bits, WTYPE value)
 {
   if (bits < 0) {
-    Perl_croak("invalid bits: %d", bits);
+    croak("invalid bits: %d", bits);
     return;
   }
 
@@ -352,7 +347,7 @@ void swrite(BitList *list, int bits, WTYPE value)
 
   // Note that we allowed writing 0 and 1 with any number of bits.
   if ( (bits < 0) || (bits > BITS_PER_WORD) ) {
-    Perl_croak("invalid bits: %d", bits);
+    croak("invalid bits: %d", bits);
     return;
   }
 
@@ -426,7 +421,7 @@ char* read_string(BitList *list, int bits)
   assert (bits <= (list->len - list->pos));
   char* buf = (char*) malloc(bits+1);
   if (buf == 0) {
-    Perl_croak("alloc failure");
+    croak("alloc failure");
     return 0;
   }
   int pos = list->pos;
@@ -500,7 +495,7 @@ char* to_raw(BitList *list)
 void from_raw(BitList *list, char* str, int bits)
 {
   if ( (str == 0) || (bits < 0) ) {
-    Perl_croak("invalid input to from_raw");
+    croak("invalid input to from_raw");
     return;
   }
   resize(list, bits);
@@ -576,7 +571,7 @@ WTYPE get_unary (BitList *list)
     word = *wptr;
   }
   if (pos > maxpos) {
-    Perl_croak("read off end of stream");
+    croak("read off end of stream");
     return 0UL;
   }
   assert(word != 0);
@@ -636,7 +631,7 @@ WTYPE get_unary1 (BitList *list)
     word = *wptr;
   }
   if (pos > maxpos) {
-    Perl_croak("read off end of stream");
+    croak("read off end of stream");
     return 0UL;
   }
   assert(word != ~0UL);
@@ -647,7 +642,7 @@ WTYPE get_unary1 (BitList *list)
   }
 
   if (pos > maxpos) {
-    Perl_croak("read off end of stream");
+    croak("read off end of stream");
     return 0UL;
   }
 
@@ -697,7 +692,7 @@ WTYPE get_gamma (BitList *list)
   assert( list->pos < list->len );
   WTYPE base = get_unary(list);
   if (base > BITS_PER_WORD) {
-    Perl_croak("Invalid base: %d", base);
+    croak("Invalid base: %lu", base);
     return 0UL;
   }
   WTYPE v;
@@ -732,7 +727,7 @@ WTYPE get_delta (BitList *list)
   assert( list->pos < list->len );
   WTYPE base = get_gamma(list);
   if (base > BITS_PER_WORD) {
-    Perl_croak("Invalid base: %d", base);
+    croak("Invalid base: %lu", base);
     return 0UL;
   }
   WTYPE v;
@@ -1419,7 +1414,7 @@ void put_startstop  (BitList *list, char* cmap, WTYPE value)
   int nparams = map[0].size;
   WTYPE global_maxval = map[nparams-1].maxval;
   if (value > map[nparams-1].maxval) {
-    croak("value %d out of range 0 - %d", value, map[nparams-1].maxval);
+    croak("value %lu out of range 0 - %lu", value, map[nparams-1].maxval);
     return;
   }
   int prefix = 0;
