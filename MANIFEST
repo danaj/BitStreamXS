@@ -30,6 +30,14 @@ t/20-startstep.t
 t/21-putstream.t
 t/22-text.t
 t/50-stream1.t
+t/60-coding-01.t
+t/60-coding-02.t
+t/60-coding-03.t
+t/60-coding-04.t
+t/60-coding-05.t
+t/60-coding-06.t
+t/60-coding-07.t
+t/60-coding-08.t
 typemap
 README
 TODO
