@@ -187,7 +187,7 @@ sub get_startstepstop {
 # all Data::BitStream::Code::* files that have been loaded as roles.
 # We're going to do it all statically, which isn't nearly as cool.
 
-my @initinfo = (
+my @_initinfo = (
     { package   => __PACKAGE__,
       name      => 'Unary',
       universal => 0,
@@ -316,20 +316,20 @@ use by $codeinfo{$name}{'package'}";
   1;
 }
 
+sub _init_codeinfo {
+  if (scalar @_initinfo > 0) {
+    foreach my $rinfo (@_initinfo) {
+      add_code($rinfo);
+    }
+    @_initinfo = ();
+  }
+}
+
 sub find_code {
   my $code = lc shift;
 
-  if (scalar @initinfo > 0) {
-    foreach my $rinfo (@initinfo) {
-      add_code($rinfo);
-    }
-    @initinfo = ();
-  }
-
-  return $codeinfo{$code} if defined $codeinfo{$code};
-
-  # We're not poking around looking for more like Data::BitStream does.
-  undef;
+  _init_codeinfo if scalar @_initinfo > 0;
+  return $codeinfo{$code};
 }
 
 sub code_is_supported {
