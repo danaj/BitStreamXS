@@ -25,18 +25,12 @@ my @fibs = (0,1,1);
   }
 }
 
-my $nvals = 500;
-my @data;
-for (1 .. $nvals) {
-  push @data, int(rand(100_000));
-}
 foreach my $encoding (@encodings) {
   my $stream = Data::BitStream::XS->new;
 
-  my $nfibs = 30;
-  if (code_is_universal($encoding)) {
-    $nfibs = ($stream->maxbits < 64)  ?  47  :  80;
-  }
+  my $nfibs = (!code_is_universal($encoding)) ? 30
+                                              : ($stream->maxbits < 64)  ?  47
+                                                                         :  80;
   my @data = @fibs;
   $#data = $nfibs;
 
