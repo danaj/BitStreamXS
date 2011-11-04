@@ -202,7 +202,7 @@ my @_initinfo = (
       decodesub => sub {shift->get_unary1(@_)}, },
     { package   => __PACKAGE__,
       name      => 'BinWord',
-      universal => 0,
+      universal => 0,  # it is universal if and only if param == maxbits
       params    => 1,
       encodesub => sub {shift->put_binword(@_)},
       decodesub => sub {shift->get_binword(@_)}, },
