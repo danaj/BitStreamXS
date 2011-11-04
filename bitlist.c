@@ -201,15 +201,78 @@ int _set_pos(BitList *list, int newpos)
 
 void read_open(BitList *list)
 {
-  if (list->mode == eModeRO) {
+  if (list->mode == eModeWO) {
     croak("read while stream opened writeonly");
     return;
   }
   if (list->is_writing)
     write_close(list);
   if (list->file != 0) {
-    fprintf(stderr, "Read file %s ... \n", list->file);
-    // TODO: file stuff
+    FILE* fh = fopen(list->file, "r");
+    if (!fh) {
+      croak("Cannot open file %s", list->file);
+      return;
+    }
+    // Read in their header lines
+    if (list->file_header_lines > 0) {
+      int hline;
+      int maxbytes = 512 * list->file_header_lines;
+      int nbytes = 0;
+      char* hbuf = (char*) malloc(nbytes);
+      char* hptr = hbuf;
+      for (hline = 0; hline < list->file_header_lines; hline++) {
+        char* fresult;
+        int len;
+        if (nbytes >= maxbytes) {
+          croak("Overflow reading header line %d/%d", hline, list->file_header_lines);
+          fclose(fh);
+          return;
+        }
+        fresult = fgets(hptr, maxbytes - nbytes, fh);
+        len = strlen(hptr);
+        if ( !fresult || feof(fh) || (len == 0) || (hptr[len-1] != '\n') ) {
+          croak("Error reading header line %d/%d", hline, list->file_header_lines);
+          fclose(fh);
+          return;
+        }
+        hptr += len;
+        nbytes += len;
+      }
+      hbuf = (char*) realloc(hbuf, nbytes+1);
+      if (list->file_header != 0)
+        free(list->file_header);
+      list->file_header = hbuf;
+    }
+    // Read the number of bits
+    unsigned long bits;
+    if (fscanf(fh, "%lu\n", &bits) != 1) {
+      croak("Cannot read number of bits from file");
+      fclose(fh);
+      return;
+    }
+    // Read data
+    list->pos = 0;
+    list->len = 0;
+    {
+      size_t total_bytes = 0;
+      char* buf = (char*) malloc(16384 * sizeof(char));
+      while (!feof(fh)) {
+        char* bptr = buf;
+        size_t bytes = fread(buf, sizeof(char), 16384, fh);
+        total_bytes += bytes;
+        while (bytes-- > 0) {
+          swrite(list, 8, *bptr++);
+        }
+      }
+      free(buf);
+      if (total_bytes != NBYTES(bits)) {
+        croak("Read %d bytes, expected %lu", total_bytes, NBYTES(bits));
+        fclose(fh);
+        return;
+      }
+      list->len = bits;
+    }
+    fclose(fh);
   }
   assert(list->is_writing == 0);
 }
