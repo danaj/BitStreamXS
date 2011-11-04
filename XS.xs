@@ -194,7 +194,7 @@ bool
 exhausted(IN Data::BitStream::XS list)
   CODE:
     if (list->is_writing)
-      croak("rewind while writing");
+      croak("exhausted while writing");
     RETVAL = (list->pos >= list->len);
   OUTPUT:
     RETVAL
@@ -414,7 +414,7 @@ put_evenrodeh(IN Data::BitStream::XS list, ...)
 void
 get_binword(IN Data::BitStream::XS list, IN int k, IN int count = 1)
   PPCODE:
-    if ( (k < 0) || (k > BITS_PER_WORD) ) {
+    if ( (k <= 0) || (k > BITS_PER_WORD) ) {
       croak("invalid parameters: binword %d", k);
       XSRETURN_UNDEF;
     }
@@ -423,7 +423,7 @@ get_binword(IN Data::BitStream::XS list, IN int k, IN int count = 1)
 void
 put_binword(IN Data::BitStream::XS list, IN int k, ...)
   CODE:
-    if ( (k < 0) || (k > BITS_PER_WORD) ) {
+    if ( (k <= 0) || (k > BITS_PER_WORD) ) {
       croak("invalid parameters: binword %d", k);
       return;
     }

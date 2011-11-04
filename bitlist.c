@@ -253,7 +253,7 @@ void write_close(BitList *list)
 
 WTYPE sread(BitList *list, int bits)
 {
-  if ( (bits < 0) || (bits > BITS_PER_WORD) ) {
+  if ( (bits <= 0) || (bits > BITS_PER_WORD) ) {
     croak("invalid bits: %d", bits);
     return 0UL;
   }
@@ -283,7 +283,7 @@ WTYPE sread(BitList *list, int bits)
 
 WTYPE sreadahead(BitList *list, int bits)
 {
-  if ( (bits < 0) || (bits > BITS_PER_WORD) ) {
+  if ( (bits <= 0) || (bits > BITS_PER_WORD) ) {
     croak("invalid bits: %d", bits);
     return 0UL;
   }
@@ -327,7 +327,7 @@ WTYPE sreadahead(BitList *list, int bits)
 
 void swrite(BitList *list, int bits, WTYPE value)
 {
-  if (bits < 0) {
+  if (bits <= 0) {
     croak("invalid bits: %d", bits);
     return;
   }
@@ -345,8 +345,8 @@ void swrite(BitList *list, int bits, WTYPE value)
     bits = 1;
   }
 
-  // Note that we allowed writing 0 and 1 with any number of bits.
-  if ( (bits < 0) || (bits > BITS_PER_WORD) ) {
+  // We allowed writing 0 and 1 with any number of positive bits.
+  if (bits > BITS_PER_WORD) {
     croak("invalid bits: %d", bits);
     return;
   }
