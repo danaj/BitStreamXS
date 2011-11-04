@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 
-use Test::More  tests => 5;
+use Test::More  tests => 6;
 
 require_ok 'Data::BitStream::XS';
 
@@ -14,6 +14,7 @@ isa_ok $v, 'Data::BitStream::XS';
 
 is($v->len, 0, 'starting len 0');
 is($v->pos, 0, 'starting pos 0');
+cmp_ok($v->maxlen, '>=', 0, 'starting maxlen is >= 0');
 
 $v->write(10, 5);
 

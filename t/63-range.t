@@ -2,8 +2,9 @@
 use strict;
 use warnings;
 
+use List::Util qw(shuffle);
 use Test::More;
-use Data::BitStream::XS;
+use Data::BitStream::XS qw(code_is_universal);
 my @encodings = qw|
               Unary Unary1 Gamma Delta Omega
               Fibonacci EvenRodeh Levenstein
@@ -15,14 +16,30 @@ my @encodings = qw|
               ARice(2)
             |;
 
+my $maxval = (~0);
+my @maxdata = (0, 1, 2, 33, 65, 129,
+               ($maxval >> 1) - 2,
+               ($maxval >> 1) - 1,
+               ($maxval >> 1),
+               ($maxval >> 1) + 1,
+               ($maxval >> 1) + 2,
+               $maxval-2,
+               $maxval-1,
+               $maxval,
+              );
+push @maxdata, @maxdata;
+my @data = shuffle @maxdata;
+
+# Remove encodings that can't encode ~0
+@encodings = grep { code_is_universal($_) } @encodings;
+@encodings = grep { $_ !~ /^(Omega)/i } @encodings;
+
 plan tests => scalar @encodings;
 
-my @data = 0 .. 257;
-push @data, 257 .. 0;
 foreach my $encoding (@encodings) {
   my $stream = Data::BitStream::XS->new;
   $stream->code_put($encoding, @data);
   $stream->rewind_for_read;
   my @v = $stream->code_get($encoding, -1);
-  is_deeply( \@v, \@data, "encoded 0-257-0 using $encoding");
+  is_deeply( \@v, \@data, "range test using $encoding");
 }

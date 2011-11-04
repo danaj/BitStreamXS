@@ -38,6 +38,12 @@ t/60-coding-05.t
 t/60-coding-06.t
 t/60-coding-07.t
 t/60-coding-08.t
+t/08-string-rand.t
+t/60-coding-09.t
+t/61-exporting.t
+t/62-interleave.t
+t/63-range.t
+t/70-failures.t
 typemap
 README
 TODO

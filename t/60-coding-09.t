@@ -3,7 +3,7 @@ use strict;
 use warnings;
 
 use Test::More;
-use Data::BitStream::XS;
+use Data::BitStream::XS qw(code_is_universal);
 my @encodings = qw|
               Unary Unary1 Gamma Delta Omega
               Fibonacci EvenRodeh Levenstein
@@ -17,12 +17,25 @@ my @encodings = qw|
 
 plan tests => scalar @encodings;
 
-my @data = 0 .. 257;
-push @data, 257 .. 0;
 foreach my $encoding (@encodings) {
   my $stream = Data::BitStream::XS->new;
+
+  my $maxbits = 16;
+  my $maxpat = 0xFFFF;
+  if (code_is_universal($encoding)) {
+    $maxbits = $stream->maxbits;
+    $maxpat = ~0;
+  }
+  my @data;
+  # Encode patterns up to 2^(maxbits-1)
+  foreach my $bits (1 .. $maxbits-1) {
+    my $maxval = $maxpat >> ($maxbits - $bits);
+    # maxvals separated by binary '10001' and '0'
+    push @data, $maxval, 17, $maxval, 0, $maxval;
+  }
+
   $stream->code_put($encoding, @data);
   $stream->rewind_for_read;
   my @v = $stream->code_get($encoding, -1);
-  is_deeply( \@v, \@data, "encoded 0-257-0 using $encoding");
+  is_deeply( \@v, \@data, "encoded bit patterns using $encoding");
 }

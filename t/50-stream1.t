@@ -21,7 +21,7 @@ use Data::BitStream::XS;
 
   $stream->write(1,1);
   $stream->write(3,5);
-  $status = $stream->writing && $stream->len == 4;
+  $status = $stream->writing && $stream->len == 4 && $stream->maxlen >= 4;
   ok($status, "simple write");
 
   $stream->write_close;
