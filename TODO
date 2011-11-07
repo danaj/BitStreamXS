@@ -8,4 +8,8 @@
 
 - redo Data::BitStream to use our pos and len
 
-- testing
+- testing:
+    - more failure tests
+    - flip expected and got in is_deeply.  Make sure we have them right.
+
+- no warn redefine instead of no strict refs in BLVec
