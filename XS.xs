@@ -21,9 +21,8 @@
  */
 #define BLSTGROW 64
 
-/* Doing this cleanly without varargs would be frustrating.
- * It means strict C89 compilers won't work.
- * I should probably replace it at some point.
+/* This is C99, and has to be wrapped in HAS_C99_VARIADIC_MACROS.
+ * TODO: Find a non-variadic way to do the same thing.
  */
 #define GET_CODEVP(codename, nargs, ...) \
    { \
