@@ -342,10 +342,7 @@ sub code_is_universal {
   my $code = lc shift;
   my $param;  $param = $1 if $code =~ s/\((.+)\)$//;
   my $inforef = find_code($code);
-  if (!defined $inforef) {
-    warn "code_is_universal: unknown code '$code'\n";
-    return 0;
-  }
+  return undef unless defined $inforef;  # Unknown code.
   return $inforef->{'universal'};
 }
 
@@ -431,16 +428,19 @@ Bit streams are often used in data compression and in embedded products where
 memory is at a premium.
 
 This code provides a nearly drop-in XS replacement for the L<Data::BitStream>
-module.  If you do not need the ability to add custom codes, or the flexibility
-of the Moose/Mouse system, you can use this directly.
+module.  If you do not need the flexibility of the Moose/Mouse system, you can
+use this directly.
 
-The L<Data::BitStream> class will attempt to use this class if it is available.
-Most operations will be 50-100 times faster, while not sacrificing any of its
-flexibility, so it is highly recommended.
+As of version 0.03, the L<Data::BitStream> class will attempt to use this class
+if it is available.  Most operations will be 50-100 times faster, while not
+sacrificing any of its flexibility, so it is highly recommended.  In other
+words, if this module is installed, any code using L<Data::BitStream> will
+automatically speed up.
 
-There is not a lot of extra speed gained by using the XS class directly, so
-maximum portability and flexibility is had by using the L<Data::BitStream>
-class and installing this module to get the speed.
+While direct use of the XS class is a bit faster than going through Mouse/Moose,
+the vast majority of the benefit is internal.  Hence, for maximum portability
+and flexibility just install this module for the speed, and continue using the
+L<Data::BitStream> class as usual.
 
 =head1 METHODS
 
@@ -458,11 +458,35 @@ do not match.  So this class may report 32-bit maxbits while Perl is 64-bit,
 and vice-versa.  This would usually happen only if it was loaded into a
 different Perl than it was compiled for.
 
+=item B< code_is_supported >
+
+Returns a hash of information about a code if it is known, and C<undef>
+otherwise.
+
+The argument is a text name, such as C<'Gamma'>, C<'Rice(2)'>, etc.
+
+=item B< code_is_universal >
+
+Returns C<undef> if the code is not known, C<0> if the code is non-universal,
+and a non-zero integer if it is universal.
+
+The argument is a text name, such as C<'Gamma'>, C<'Rice(2)'>, etc.
+
+A code is universal if there exists a constant C<C> such that C<C> plus the
+length of the code is less than the optimal code length, for all values.  What
+this typically means for us in practical terms is that non-universal codes
+are fine for small numbers, but their size increases rapidly, making them
+inappropriate when large values are possible (no matter how rare).  A
+classic non-universal code is Unary coding, which takes C<k+1> bits to
+store value C<k>.  This is very good if most values are 0 or near zero.  If
+we have rare values in the tens of thousands, it's not so great.  It is
+likely to be fatal if we ever come across a value of 2 billion.
+
 =back
 
 =head2 OBJECT METHODS (I<reading>)
 
-These methods are only value while the stream is in reading state.
+These methods are only valid while the stream is in reading state.
 
 =over 4
 
@@ -485,6 +509,8 @@ The position is advanced unless the second argument is the string 'readahead'.
 
 Advances the position C<$bits> bits.  Used in conjunction with C<readahead>.
 
+Attempting to skip past the end of the stream is a fatal error.
+
 =item B< read_string($bits) >
 
 Reads C<$bits> bits from the stream and returns them as a binary string, such
@@ -494,14 +520,15 @@ as '0011011'.
 
 =head2 OBJECT METHODS (I<writing>)
 
-These methods are only value while the stream is in writing state.
+These methods are only valid while the stream is in writing state.
 
 =over 4
 
 =item B< write($bits, $value) >
 
 Writes C<$value> to the stream using C<$bits> bits.  
-C<$bits> must be between C<1> and C<maxbits>.
+C<$bits> must be between C<1> and C<maxbits>, unless C<value> is 0 or 1, in
+which case C<bits> may be larger than C<maxbits>.
 
 The length is increased by C<$bits> bits.
 Regardless of the contents of C<$value>, exactly C<$bits> bits will be used.
@@ -629,13 +656,14 @@ If C<$count> is C<1> or not supplied, a single value will be read.
 If C<$count> is positive, that many values will be read.
 If C<$count> is negative, values are read until the end of the stream.
 
-C<get_> methods called in list context this return a list of all values read.
+C<get_> methods called in list context will return a list of all values read.
 Called in scalar context they return the last value read.
 
 C<put_> methods take one or more values as input after any optional
 parameters and write them to the stream.  All values must be non-negative
-integers that do not exceed the maximum encodable value (~0 for universal
-codes, parameter-specific for others).
+integers that do not exceed the maximum encodable value (typically ~0, but
+may be lower for some codes depending on parameter, and non-universal codes
+will be practically limited to smaller values).
 
 =over 4
 
@@ -776,6 +804,24 @@ is an array reference which can be an anonymous array, for example:
   $stream->put_startstepstop( [3,2,9], @array );
   my @array3 = $stream->get_startstepstop( [3,2,9], -1);
 
+=item B< code_get($code, [, $count]) >
+
+=item V< code_put($code, @values ) >
+
+These methods wrap up all the previous encoding and decoding methods in an
+internal dispatch table.
+C<code> is a text name of the code, such as C<'Gamma'>, C<'Fibonacci'>, etc.
+Codes with parameters are called as C<'Rice(2)'>, C<'StartStop(0-0-2-4-14)'>,
+etc.
+
+  # $use_rice and $k obtained from options, parameters, or wherever.
+  my $code = $use_rice ? "Rice($k)" : "Delta";
+  my $nvalues = scalar @values;
+  $stream->code_put($code, @values);
+  # ....
+  my @vals = $stream->code_get($code, $nvalues);
+  print "Read $nvalues values with code '$code':  ", join(',', @vals), "\n";
+
 =back
 
 =head1 SEE ALSO
@@ -807,6 +853,12 @@ is an array reference which can be an anonymous array, for example:
 =item L<Data::BitStream::Code::ExponentialGolomb>
 
 =item L<Data::BitStream::Code::StartStop>
+
+=item L<Data::BitStream::Code::Baer>
+
+=item L<Data::BitStream::Code::BoldiVigna>
+
+=item L<Data::BitStream::Code::ARice>
 
 =back
 

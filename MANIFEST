@@ -29,6 +29,7 @@ t/19-boldivigna.t
 t/20-startstep.t
 t/21-putstream.t
 t/22-text.t
+t/23-maxbits.t
 t/50-stream1.t
 t/60-coding-01.t
 t/60-coding-02.t
@@ -45,5 +46,6 @@ t/62-interleave.t
 t/63-range.t
 t/70-failures.t
 typemap
+wtype.h
 README
 TODO

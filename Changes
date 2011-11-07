@@ -1,0 +1,12 @@
+Revision history for Perl extension Data::BitStream::XS.
+
+0.02
+	- Fix tests on 5.6/5.8 that broke things at the last minute.
+	- Change // comments and mixed declarations to allow compilation with
+	  old C compilers (--std=c89 --ansi -pedantic).
+	  Variadic macros still being used however.
+	- Try to match word size with Perl word size.  Hopefully will fix
+	  issues with LLP64 model machines using 64-bit Perl.
+
+0.01  Mon Nov  7 06:00:00 2011
+	- Initial version
