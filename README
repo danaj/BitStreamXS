@@ -34,10 +34,18 @@ DEPENDENCIES
 
 Perl 5.6.2 or later.  No modules outside of Core have been used.
 
+
+TESTING
+
 Tested with perl 5.8.0 and 5.14.2 on 32-bit big-endian PA-RISC HP/UX.
 
 Tested with perl 5.6.2, 5.8.9, 5.10.1, 5.12.4, 5.14.2, and 5.15.2
    on 64-bit x86 RHEL6 Linux.
+
+It looks like there is an issue with one of the CPAN Testers Solaris machines,
+where the compiler seems to be giving sizeof(unsigned long) == 8 (64-bit), but
+all the results are truncated to 32-bit.  The Perl options indicate it should
+be 64-bit Perl, but it isn't acting like it.
 
 
 PERFORMANCE

@@ -2,9 +2,7 @@
 #include "EXTERN.h"
 #include "perl.h"
 #include "XSUB.h"
-
 /* We're not using anything for which we need ppport.h */
-
 #include "bitlist.h"
 
 #define CHECKPOS \
@@ -129,7 +127,7 @@ DESTROY(IN Data::BitStream::XS list)
 int
 maxbits(IN Data::BitStream::XS list = 0)
   CODE:
-    RETVAL = 8 * sizeof(WTYPE);
+    RETVAL = BITS_PER_WORD;
   OUTPUT:
     RETVAL
 
@@ -537,7 +535,7 @@ get_golomb_sub(IN Data::BitStream::XS list, IN SV* coderef, IN unsigned long m, 
     SV* self = ST(0);
     SV* cref = 0;
   PPCODE:
-    if (m < 1UL) {
+    if (m < W_ONE) {
       croak("invalid parameters: golomb %lu", m);
       XSRETURN_UNDEF;
     }
@@ -559,7 +557,7 @@ put_golomb_sub(IN Data::BitStream::XS list, IN SV* coderef, IN unsigned long m, 
     SV* self = ST(0);
     SV* cref = 0;
   CODE:
-    if (m < 1UL) {
+    if (m < W_ONE) {
       croak("invalid parameters: golomb %lu", m);
       return;
     }
@@ -581,7 +579,7 @@ get_gamma_golomb(IN Data::BitStream::XS list, IN unsigned long m, IN int count =
   ALIAS:
     get_gammagolomb = 1
   PPCODE:
-    if (m < 1UL) {
+    if (m < W_ONE) {
       croak("invalid parameters: gamma_golomb %lu", m);
       XSRETURN_UNDEF;
     }
@@ -592,7 +590,7 @@ put_gamma_golomb(IN Data::BitStream::XS list, IN unsigned long m, ...)
   ALIAS:
     put_gammagolomb = 1
   CODE:
-    if (m < 1UL) {
+    if (m < W_ONE) {
       croak("invalid parameters: gamma_golomb %lu", m);
       return;
     }

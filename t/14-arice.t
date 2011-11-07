@@ -23,7 +23,7 @@ my @values = $v->get_adaptive_gamma_rice($k, $nitems);
 #  my @values;
 #  push @values, $v->get_adaptive_gamma_rice($k,2)  for (1 .. $nitems/2);
 is($k, $endk, "endk ($endk) matches");
-is_deeply( [@values], \@a, "arice get array 0-257");
+is_deeply( \@values, \@a, "arice get array 0-257");
 
 # Now test one at a time.
 {

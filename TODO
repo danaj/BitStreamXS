@@ -13,3 +13,5 @@
     - flip expected and got in is_deeply.  Make sure we have them right.
 
 - no warn redefine instead of no strict refs in BLVec
+
+- Add detailed 64-bit test, trying to narrow down the Solaris issue.

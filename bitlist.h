@@ -5,7 +5,7 @@
  * function instead of ours, leading to all sorts of fun errors.
  */
 
-#define WTYPE  unsigned long
+#include "wtype.h"
 
 #define BITS_PER_WORD (8 * sizeof(WTYPE))
 #define MAXBIT        (BITS_PER_WORD-1)

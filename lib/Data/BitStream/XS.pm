@@ -453,6 +453,11 @@ class and installing this module to get the speed.
 Returns the number of bits in a word, which is the largest allowed size of
 the C<bits> argument to C<read> and C<write>.  This will be either 32 or 64.
 
+It is theoretically possible that the maximum bits for this class and Perl
+do not match.  So this class may report 32-bit maxbits while Perl is 64-bit,
+and vice-versa.  This would usually happen only if it was loaded into a
+different Perl than it was compiled for.
+
 =back
 
 =head2 OBJECT METHODS (I<reading>)
