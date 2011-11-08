@@ -47,4 +47,3 @@ plan tests => 3;
     }
   }
 }
-done_testing();

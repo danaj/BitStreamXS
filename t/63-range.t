@@ -2,7 +2,17 @@
 use strict;
 use warnings;
 
-use List::Util qw(shuffle);
+eval {require List::Util; 1;} or do {
+  sub shuffle (@) {
+    my @a=\(@_);
+    my $n;
+    my $i=@_;
+    map {
+      $n = rand($i--);
+      (${$a[$n]}, $a[$n] = $a[$i])[0];
+    } @_;
+  }
+};
 use Test::More;
 use Data::BitStream::XS qw(code_is_universal);
 my @encodings = qw|
@@ -16,7 +26,8 @@ my @encodings = qw|
               ARice(2)
             |;
 
-my $maxval = (~0);
+# Perl 5.6.2 64-bit support is problematic
+my $maxval = ($] < 5.8)  ?  0xFFFFFFFF  :  ~0;
 my @maxdata = (0, 1, 2, 33, 65, 129,
                ($maxval >> 1) - 2,
                ($maxval >> 1) - 1,

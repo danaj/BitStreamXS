@@ -18,22 +18,22 @@
 #ifndef U32_CONST
 /* From perl.h, wrapped in PERL_CORE */
 # if INTSIZE >= 4
-#  define U32_CONST(x) ((U32)x##U)
+#  define U32_CONST(x) ((U32TYPE)x##U)
 # else
-#  define U32_CONST(x) ((U32)x##UL)
+#  define U32_CONST(x) ((U32TYPE)x##UL)
 # endif
 #endif
 
 #ifndef U64_CONST
 # ifdef HAS_QUAD
 #  if INTSIZE >= 8
-#   define U64_CONST(x) ((U64)x##U)
+#   define U64_CONST(x) ((U64TYPE)x##U)
 #  elif LONGSIZE >= 8
-#   define U64_CONST(x) ((U64)x##UL)
+#   define U64_CONST(x) ((U64TYPE)x##UL)
 #  elif QUADKIND == QUAD_IS_LONG_LONG
-#   define U64_CONST(x) ((U64)x##ULL)
+#   define U64_CONST(x) ((U64TYPE)x##ULL)
 #  else /* best guess we can make */
-#   define U64_CONST(x) ((U64)x##UL)
+#   define U64_CONST(x) ((U64TYPE)x##UL)
 #  endif
 # endif
 #endif
@@ -45,7 +45,7 @@
 #elif LONGSIZE >= 8
   /* Should we be doing this? */
   typedef unsigned long WTYPE
-  #define W_CONST(c)  ((U64)x##UL)
+  #define W_CONST(c)  ((U64TYPE)x##UL)
 #else
   typedef U32TYPE WTYPE;
   #define W_CONST(c)  U32_CONST(c)

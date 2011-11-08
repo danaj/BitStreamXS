@@ -32,6 +32,9 @@ foreach my $encoding (@encodings) {
   my $nfibs = (!code_is_universal($encoding)) ? 30
                                               : ($stream->maxbits < 64)  ?  47
                                                                          :  80;
+  # Perl 5.6.3 64-bit is problematic
+  $nfibs = 73 if ($] < 5.8) && ($nfibs > 73);
+
   my @data = @fibs;
   $#data = $nfibs;
   push @data, reverse @data;

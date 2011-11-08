@@ -5,7 +5,17 @@ use warnings;
 # The purpose of this test is to ensure the implementation keeps all its
 # data stored in instance data, and nothing is shared among streams.
 
-use List::Util qw(shuffle);
+eval {require List::Util; 1;} or do {
+  sub shuffle (@) {
+    my @a=\(@_);
+    my $n;
+    my $i=@_;
+    map {
+      $n = rand($i--);
+      (${$a[$n]}, $a[$n] = $a[$i])[0];
+    } @_;
+  }
+};
 use Test::More;
 use Data::BitStream::XS qw(code_is_universal);
 my @encodings = qw|
