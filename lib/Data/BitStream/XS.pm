@@ -342,7 +342,7 @@ sub code_is_universal {
   my $code = lc shift;
   my $param;  $param = $1 if $code =~ s/\((.+)\)$//;
   my $inforef = find_code($code);
-  return undef unless defined $inforef;  # Unknown code.
+  return unless defined $inforef;  # Unknown code.
   return $inforef->{'universal'};
 }
 
@@ -448,6 +448,48 @@ L<Data::BitStream> class as usual.
 
 =over 4
 
+=item B< new >
+
+Creates a new object.  By default it has no associated file, is mode RW, and
+has maxlen 0 (no space allocated).  An optional hash of arguments may be
+supplied.  Examples:
+
+  $stream = Data::BitStream::XS->new( size => 10_000 );
+
+Indicates an initial start size of C<10,000> bits.  The normal behavior is to
+expand the data area as needed, but this can be used to make an initial
+allocation.  A small amount of time will be saved, and it will be more space
+efficient if the number of bits is known in advance.  This often will be a
+premature optimization.
+
+  $stream = Data::BitStream::XS->new( mode => 'ro' );
+
+The stream is opened as a read-only stream.  Attempts to open it for write will
+fail, hence all write / put methods will also fail.  This is most useful for
+opening a file for read, which will ensure no changes are made.
+
+Possible modes include C<'read' / 'r'>, C<'readonly' / 'ro'>, C<'write' / 'w'>,
+C<'writeonly' / 'wo'>, C<'append' / 'a'>, and C<'readwrite' / 'rw' / 'rdwr'>.
+
+  $stream = Data::BitStream::XS->new( file    => "c.bsc",
+                                      fheader => "HEADER $foo $bar",
+                                      mode    => 'w' );
+
+A file is associated with the stream.  Upon closing the file, going out of
+scope, or otherwise being destroyed, the stream will be written to the file,
+with the given header string written first.  While the current implementation
+writes at close time, later implementations may write as the stream is written
+to.
+
+  $stream = Data::BitStream::XS->new( file => "c.bsc",
+                                      fheaderlines => 1,
+                                      mode => 'ro' );
+
+A file is associated with the stream.  The contents of the file will be
+slurped into the stream.  The given number of header lines will be skipped
+at the start.  While the current implementation slurps the contents, later
+implementations may read from the file as the stream is read.
+
 =item B< maxbits >
 
 Returns the number of bits in a word, which is the largest allowed size of
@@ -505,6 +547,10 @@ C<$bits> must be between C<1> and C<maxbits>.
 
 The position is advanced unless the second argument is the string 'readahead'.
 
+Attempting to read past the end of the stream is a fatal error.  However,
+readahead is allowed as it is speculative.  All positions past the end of
+the stream will always be filled with zero bits.
+
 =item B< skip($bits) >
 
 Advances the position C<$bits> bits.  Used in conjunction with C<readahead>.
@@ -514,7 +560,7 @@ Attempting to skip past the end of the stream is a fatal error.
 =item B< read_string($bits) >
 
 Reads C<$bits> bits from the stream and returns them as a binary string, such
-as '0011011'.
+as '0011011'.  Attempting to read past the end of the stream is a fatal error.
 
 =back
 
@@ -537,7 +583,7 @@ In other words, C<$value> will be masked before writing.
 
 =item B< put_string(@strings) >
 
-Takes one or more binary strings, such as '1001101', '001100', etc. and
+Takes one or more binary strings (e.g. '1001101', '001100') and
 writes them to the stream.  The number of bits used for each value is equal
 to the string length.
 
@@ -604,6 +650,17 @@ as changed by C<to>, C<from>, C<rewind>, and C<erase> methods.
 A read-only non-negative integer indicating the current length of the stream
 in bits.  It is advanced by C<write> and C<put> methods, as well as changed
 by C<from> and C<erase> methods.
+
+=item B< maxlen >
+
+A read-only non-negative integer indicating the current storage size of the
+stream in bits.  This will always be greater than or equal to the stream
+C<len>.  Applications will not normally need to know this.
+
+=item B< trim >
+
+Resizes the data to the stream C<len>, releasing all expansion space to
+the system.  Not normally needed.
 
 =item B< writing >
 
@@ -806,7 +863,7 @@ is an array reference which can be an anonymous array, for example:
 
 =item B< code_get($code, [, $count]) >
 
-=item V< code_put($code, @values ) >
+=item B< code_put($code, @values ) >
 
 These methods wrap up all the previous encoding and decoding methods in an
 internal dispatch table.

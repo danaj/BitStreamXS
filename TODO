@@ -1,17 +1,9 @@
 
 - better file handling code
-  test file handling
+  test file handling (imcomp.pl should work with XS)
   best API?
   mmap?
 
 - push trim to Data::BitStream
 
 - redo Data::BitStream to use our pos and len
-
-- testing:
-    - more failure tests
-    - flip expected and got in is_deeply.  Make sure we have them right.
-
-- no warn redefine instead of no strict refs in BLVec
-
-- Add detailed 64-bit test, trying to narrow down the Solaris issue.

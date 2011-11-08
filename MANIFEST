@@ -1,9 +1,14 @@
+Changes
+Makefile.PL
+MANIFEST
+README
+TODO
+lib/Data/BitStream/XS.pm
+XS.xs
 bitlist.c
 bitlist.h
-XS.xs
-lib/Data/BitStream/XS.pm
-MANIFEST
-Makefile.PL
+wtype.h
+typemap
 t/01-load.t
 t/02-rw.t
 t/03-rw.t
@@ -45,7 +50,3 @@ t/61-exporting.t
 t/62-interleave.t
 t/63-range.t
 t/70-failures.t
-typemap
-wtype.h
-README
-TODO
