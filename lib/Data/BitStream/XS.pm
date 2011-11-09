@@ -560,7 +560,8 @@ Attempting to skip past the end of the stream is a fatal error.
 =item B< read_string($bits) >
 
 Reads C<$bits> bits from the stream and returns them as a binary string, such
-as '0011011'.  Attempting to read past the end of the stream is a fatal error.
+as C<'0011011'>.  Attempting to read past the end of the stream is a fatal
+error.
 
 =back
 
@@ -576,14 +577,14 @@ Writes C<$value> to the stream using C<$bits> bits.
 C<$bits> must be between C<1> and C<maxbits>, unless C<value> is 0 or 1, in
 which case C<bits> may be larger than C<maxbits>.
 
-The length is increased by C<$bits> bits.
+The stream length will be increased by C<$bits> bits.
 Regardless of the contents of C<$value>, exactly C<$bits> bits will be used.
 If C<$value> has more non-zero bits than C<$bits>, the lower bits are written.
-In other words, C<$value> will be masked before writing.
+In other words, C<$value> will be effectively masked before writing.
 
 =item B< put_string(@strings) >
 
-Takes one or more binary strings (e.g. '1001101', '001100') and
+Takes one or more binary strings (e.g. C<'1001101'>, C<'001100'>) and
 writes them to the stream.  The number of bits used for each value is equal
 to the string length.
 
@@ -804,13 +805,6 @@ large outliers.  For example to use Fibonacci coding for the base:
 =item B< get_rice($k [, $count]) >
 
 =item B< put_rice($k, @values) >
-
-Reads/writes one or more values from the stream in Rice coding, which is
-the time efficient case where C<m = 2^k>.
-
-=item B< get_rice(sub { ... }, $k [, $count]) >
-
-=item B< put_rice(sub { ... }, $k, @values) >
 
 Reads/writes one or more values from the stream in Rice coding, which is
 the time efficient case where C<m = 2^k>.
