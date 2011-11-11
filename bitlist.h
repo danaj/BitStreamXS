@@ -24,18 +24,22 @@ typedef enum
 
 typedef struct
 {
-   int       maxlen;
-   int       len;
-   int       pos;
-   WTYPE    *data;
-   FileMode  mode;
-   char*     file;
-   char*     file_header;
-   int       file_header_lines;
-   int       is_writing;
+   int         maxlen;
+   int         len;
+   int         pos;
+   WTYPE*      data;
+   FileMode    mode;
+   const char* file;
+   char*       file_header;
+   int         file_header_lines;
+   int         is_writing;
 } BitList;
 
-extern BitList*  new            (FileMode mode, char* file, int fheaderlines, int initial_size);
+extern BitList*  new            (FileMode mode,
+                                 const char* file,
+                                 const char* fheaderdata,
+                                 int fheaderlines,
+                                 int initial_size);
 
 extern void      DESTROY        (BitList *pVector);
 
@@ -54,12 +58,13 @@ extern void      swrite         (BitList *l, int bits, WTYPE value);
 
 extern void      dump           (BitList *l);
 
-extern void      put_string     (BitList *l, char* s);
+extern void      put_string     (BitList *l, const char* s);
 extern char*     read_string    (BitList *l, int bits);
 
 extern char*     to_raw         (BitList *l);
-extern void      from_raw       (BitList *l, char* str, int bits);
+extern void      from_raw       (BitList *l, const char* str, int bits);
 
+/* src ought to be const, but we're going to call write_close() on it */
 extern void      xput_stream    (BitList *l, BitList *s);
 
 extern WTYPE     get_unary      (BitList *l);
@@ -78,7 +83,7 @@ extern WTYPE     get_golomb_sub (BitList *l, SV* self, SV* code, WTYPE m);
 extern WTYPE     get_gamma_rice (BitList *l, int k);
 extern WTYPE     get_gamma_golomb (BitList *l, WTYPE m);
 extern WTYPE     get_adaptive_gamma_rice_sub (BitList *l, SV* self, SV* code, int *k);
-extern WTYPE     get_startstop  (BitList *l, char* cmap);
+extern WTYPE     get_startstop  (BitList *l, const char* cmap);
 
 extern void      put_unary      (BitList *l, WTYPE value);
 extern void      put_unary1     (BitList *l, WTYPE value);
@@ -96,6 +101,6 @@ extern void      put_golomb_sub (BitList *l, SV* self, SV* code, WTYPE m, WTYPE 
 extern void      put_gamma_rice (BitList *l, int k, WTYPE value);
 extern void      put_gamma_golomb (BitList *l, WTYPE m, WTYPE value);
 extern void      put_adaptive_gamma_rice_sub (BitList *l, SV* self, SV* code, int *k, WTYPE value);
-extern void      put_startstop  (BitList *l, char* cmap, WTYPE value);
+extern void      put_startstop  (BitList *l, const char* cmap, WTYPE value);
 
 extern char*     make_startstop_prefix_map(SV* paramref);

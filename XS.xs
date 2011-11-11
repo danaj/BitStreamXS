@@ -82,11 +82,12 @@ MODULE = Data::BitStream::XS	PACKAGE = Data::BitStream::XS
 PROTOTYPES: ENABLE
 
 Data::BitStream::XS
-new (IN char* package, ...)
+new (IN const char* package, ...)
   PREINIT:
     int i;
     FileMode mode = eModeRW;
-    char* file = 0;
+    const char* file = 0;
+    const char* fheaderdata = 0;
     int   fheaderlines = 0;
     int   initial_bits = 0;
   CODE:
@@ -95,9 +96,9 @@ new (IN char* package, ...)
         croak("new takes a hash of options");
       for (i = 1; i < items; i += 2) {
         STRLEN klen, vlen;
-        char* key = SvPV(ST(i+0), klen);
+        const char* key = SvPV(ST(i+0), klen);
         if (!strcmp(key, "mode")) {
-          char* val = SvPV(ST(i+1), vlen);
+          const char* val = SvPV(ST(i+1), vlen);
           if     ((!strcmp(val,"r" ))||(!strcmp(val,"read")))      mode=eModeR;
           else if((!strcmp(val,"ro"))||(!strcmp(val,"readonly")))  mode=eModeRO;
           else if((!strcmp(val,"w" ))||(!strcmp(val,"write")))     mode=eModeW;
@@ -109,6 +110,8 @@ new (IN char* package, ...)
             croak("Unknown mode: %s", val);
         } else if (!strcmp(key, "file")) {
           file = SvPV(ST(i+1), vlen);
+        } else if (!strcmp(key, "fheader")) {
+          fheaderdata = SvPV(ST(i+1), vlen);
         } else if (!strcmp(key, "fheaderlines")) {
           fheaderlines = SvIV(ST(i+1));
         } else if (!strcmp(key, "size")) {
@@ -116,7 +119,7 @@ new (IN char* package, ...)
         }
       }
     }
-    RETVAL = new(mode, file, fheaderlines, initial_bits);
+    RETVAL = new(mode, file, fheaderdata, fheaderlines, initial_bits);
   OUTPUT:
     RETVAL
 
@@ -153,6 +156,19 @@ int
 pos(IN Data::BitStream::XS list)
   CODE:
     RETVAL = list->pos;
+  OUTPUT:
+    RETVAL
+
+SV *
+fheader(IN Data::BitStream::XS list)
+  PREINIT:
+    char* buf;
+  CODE:
+    if (list->file_header == 0) {
+      XSRETURN_UNDEF;
+    } else {
+      RETVAL = newSVpv(list->file_header, 0);
+    }
   OUTPUT:
     RETVAL
 
@@ -211,7 +227,7 @@ void
 write_close(IN Data::BitStream::XS list)
 
 unsigned long
-read(IN Data::BitStream::XS list, IN int bits, IN char* flags = 0)
+read(IN Data::BitStream::XS list, IN int bits, IN const char* flags = 0)
   PREINIT:
     int readahead;
   CODE:
@@ -316,7 +332,7 @@ to_raw(IN Data::BitStream::XS list)
     RETVAL
 
 void
-from_raw(IN Data::BitStream::XS list, IN char* str, IN int bits)
+from_raw(IN Data::BitStream::XS list, IN const char* str, IN int bits)
 
 void
 xput_stream(IN Data::BitStream::XS list, IN Data::BitStream::XS source)
