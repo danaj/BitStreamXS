@@ -10,9 +10,9 @@ WriteMakefile(
     ($] >= 5.005 ?     ## Add these new keywords supported since 5.005
        (AUTHOR         => 'Dana A Jacobsen <dana@acm.org>') : ()),
 
-    LIBS         => [''],   # e.g., '-lm' 
-    DEFINE       => '',     # e.g., '-DHAVE_SOMETHING' 
-    INC          => '',     # e.g., '-I/usr/include/other' 
+    LIBS         => [''],   # e.g., '-lm'
+    DEFINE       => '',     # e.g., '-DHAVE_SOMETHING'
+    INC          => '',     # e.g., '-I/usr/include/other'
     OBJECT       => 'bitlist.o XS.o',
 
     PREREQ_PM => {

@@ -51,9 +51,9 @@ sub rand_geo {
   # Inspired by Bio::Tools::RandomDistFunctions (Jason Stajich, Mike Sanderson)
   # Any misuse of their function is purely my fault.
   my $den;
-  if( $param < 1e-8) { 
+  if( $param < 1e-8) {
       $den = (-1 * $param) - ( $param * $param ) / 2;
-  } else { 
+  } else {
       $den = log(1 - $param);
   }
   my $z = log(1 - rand(1)) / $den;
@@ -158,7 +158,7 @@ sub time_list {
   foreach my $i (0 .. $#list) {
       die "incorrect $encoding coding for $i" if $a[$i] != $list[$i];
   }
-  printf "   %-14s:  %8d bytes  %8d uS encode  %8d uS decode\n", 
+  printf "   %-14s:  %8d bytes  %8d uS encode  %8d uS decode\n",
          $encoding, int(($len+7)/8), $e1, $e2;
   1;
 }

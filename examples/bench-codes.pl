@@ -147,7 +147,7 @@ sub time_list {
   # convert total uS time into ns/value
   $e1 = int(1000 * ($e1 / scalar @list));
   $e2 = int(1000 * ($e2 / scalar @list));
-  printf "   %-17s: %8d bytes  %6d ns encode  %6d ns decode\n", 
+  printf "   %-17s: %8d bytes  %6d ns encode  %6d ns decode\n",
          $encoding, int(($len+7)/8), $e1, $e2;
   $tot_encode_time += $e1;
   $tot_decode_time += $e2;

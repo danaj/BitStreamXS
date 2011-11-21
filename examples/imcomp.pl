@@ -17,7 +17,7 @@ use Imager;
 # vehicle for experimenting with different ideas.
 #
 # Examples:
-# 
+#
 #  Compress art.ppm -> c.bsc using defaults
 #
 #      perl imcomp.pl  -c  -i art.ppm  -o c.bsc
@@ -418,7 +418,7 @@ sub compress_complex {
         $breaklen = $min_runlen_param;
         { my $nlits = ($x-$litstart) >> 3; $breaklen++ while ($nlits >>= 1); }
         $runlen = 3;
-        $runlen++ while ($x+$runlen) < $width && 
+        $runlen++ while ($x+$runlen) < $width &&
                         $pixels[$x] == $pixels[$x+$runlen] &&
                         $runlen < $breaklen;
         # If we found enough, exit
