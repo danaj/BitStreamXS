@@ -1,4 +1,4 @@
-Data::BitStream::XS version 0.02
+Data::BitStream::XS version 0.03
 ================================
 
 A class providing read/write access to bit streams, implemented in XS for
@@ -42,14 +42,11 @@ Tested with perl 5.8.0 and 5.14.2 on 32-bit big-endian PA-RISC HP/UX.
 Tested with perl 5.6.2, 5.8.9, 5.10.1, 5.12.4, 5.14.2, and 5.15.2
    on 64-bit x86 RHEL6 Linux.
 
-There is currently an issue with some CPAN Testers platforms, mainly Solaris
-and AMD.  On those machines, Perl is reporting that it is an LLP64 model:
-long is 32-bit and long long is 64-bit, and is compiled with 64-bit support.
-However my XS code is reporting LP64 behavior (as expected for Solaris), and
-the mismatch seems to be causing havoc.  I've attempted to make this code use
-whatever Perl is using, which may or may not fix things.  There may be a
-compiler or option mismatch between what was used for Perl and what gets used
-to compile our XS class that may still cause problems.
+Tested with perl 5.14.2 on 32-bit ARM.
+
+Tested with 32-bit and 64-bit Perl on 32-bit x86 Ubuntu.
+
+I'm watching CPAN Testers to see what issues come up.
 
 
 PERFORMANCE
@@ -59,10 +56,13 @@ optimized -- more than Bit::Vector and similar to the Scalar::Vec::Util code,
 for instance.  On the other hand, if you're an embedded programmer used to
 counting cycles in inner loops, it could certainly use improvement.  People
 have very different ideas of what "highly optimized code" means.
-  While shaving cycles is crucial for the inner loops on embedded products,
+
+While shaving cycles is crucial for the inner loops on embedded products,
 this code is being called from Perl so the main benefit will come from
 efficiently getting in and out of the C code.  This class is over 50x faster
 than the Pure Perl Mouse class, and over 100x faster than Pure Perl Moo/Moose.
+Tests on ARM devices (133MHZ NSLU2 and 1.2GHz Sheeva) show even larger
+improvements.
 
 It turns out that for most uses we can get almost all the performance benefit
 while still using the Moose/Mouse wrapper for Yummy Perly Goodness.  The

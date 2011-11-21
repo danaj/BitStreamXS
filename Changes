@@ -1,12 +1,22 @@
 Revision history for Perl extension Data::BitStream::XS.
 
+0.03
+  - Tracked down the LLP64 (32-bit long, 64-bit long long) issue down to using
+    an unsigned long in the .xs get_* macro.  Fixed.  After v0.02, pure 32-bit
+    and pure 64-bit systems would work, but 64-bit Perl on 32-bit O/S didn't.
+    It should work now.
+  - Allow Omega to encode 0 - ~0 instead of 0 - ~0-1.  All codes are full
+    range now.
+
+
 0.02
-	- Fix tests on 5.6/5.8 that broke things at the last minute.
-	- Change // comments and mixed declarations to allow compilation with
-	  old C compilers (--std=c89 --ansi -pedantic).
-	  Variadic macros still being used however.
-	- Try to match word size with Perl word size.  Hopefully will fix
-	  issues with LLP64 model machines using 64-bit Perl.
+  - Fix tests on 5.6/5.8 that broke things at the last minute.
+  - Change // comments and mixed declarations to allow compilation with
+    old C compilers (--std=c89 --ansi -pedantic).
+    Variadic macros still being used however.
+  - Try to match word size with Perl word size.  Hopefully will fix
+    issues with LLP64 model machines using 64-bit Perl.
+
 
 0.01  Mon Nov  7 06:00:00 2011
-	- Initial version
+  - Initial version
