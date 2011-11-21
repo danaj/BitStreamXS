@@ -836,19 +836,21 @@ WTYPE get_omega (BitList *list)
   int pos = list->pos;
   assert( list->pos < list->len );
   while ( (first_bit = sread(list, 1)) == W_ONE ) {
+    if (v == BITS_PER_WORD) {
+      return W_FFFF;
+    } else if (v > BITS_PER_WORD) {
+      list->pos = pos;  /* restore position */
+      croak("code error: Omega overflow");
+      return W_ZERO;
+    }
     if ( (list->pos + (v+1)) > list->len ) {
       list->pos = pos;  /* restore position */
       croak("read off end of stream");
       return W_ZERO;
     }
-    if (v > BITS_PER_WORD) {
-      list->pos = pos;  /* restore position */
-      croak("code error: Omega overflow");
-      return W_ZERO;
-    }
     v = (W_ONE << v) | sread(list, v);
   }
-  return (v == W_ZERO) ? W_FFFF : v-W_ONE;
+  return (v - W_ONE);
 }
 
 void put_omega (BitList *list, WTYPE value)
@@ -857,7 +859,19 @@ void put_omega (BitList *list, WTYPE value)
   int   stack_b[BIT_STACK_SIZE];
   WTYPE stack_v[BIT_STACK_SIZE];
 
-  /* TODO: How to encode W_FFFF (~0) ? */
+  if (value == W_FFFF) {
+    // Write the code that will make v = BITS_PER_WORD
+    int fbits = 1 + (BITS_PER_WORD > 32);
+    swrite(list, 1, 1);
+    swrite(list, 1, 0);        // v = 2
+    swrite(list, 1, 1);
+    swrite(list, 2, fbits);    // v = 5 (32-bit) or 6 (64-bit)
+    swrite(list, 1, 1);
+    swrite(list, 4+fbits, 0);  // v = 2^5 (32)  /  2^6 (64)
+    swrite(list, 1, 1);        // Decode v as bit count
+    return;
+  }
+
   value += W_ONE;
   { stack_b[sp] = 1; stack_v[sp] = 0; sp++; }
 

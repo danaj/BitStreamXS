@@ -43,7 +43,7 @@ my @data = shuffle @maxdata;
 
 # Remove encodings that can't encode ~0
 @encodings = grep { code_is_universal($_) } @encodings;
-@encodings = grep { $_ !~ /^(Omega)/i } @encodings;
+#@encodings = grep { $_ !~ /^(Omega)/i } @encodings;
 
 plan tests => scalar @encodings;
 
