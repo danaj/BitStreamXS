@@ -27,7 +27,7 @@
 #define GET_CODEVP(codename, nargs, ...) \
    { \
     bool wantarray = (GIMME_V == G_ARRAY); \
-    unsigned long v; \
+    WTYPE v; \
     int c = 0; \
     if ( (list == 0) || (count == 0) || (list->pos >= list->len) ) { \
       if (wantarray) { XSRETURN_EMPTY; } else { XSRETURN_UNDEF; } \
@@ -226,7 +226,7 @@ write_open(IN Data::BitStream::XS list)
 void
 write_close(IN Data::BitStream::XS list)
 
-unsigned long
+UV
 read(IN Data::BitStream::XS list, IN int bits, IN const char* flags = 0)
   PREINIT:
     int readahead;
@@ -252,7 +252,7 @@ read(IN Data::BitStream::XS list, IN int bits, IN const char* flags = 0)
   OUTPUT:
     RETVAL
 
-unsigned long
+UV
 readahead(IN Data::BitStream::XS list, IN int bits)
   CODE:
     if (list->is_writing) {
@@ -270,7 +270,7 @@ readahead(IN Data::BitStream::XS list, IN int bits)
     RETVAL
 
 void
-write(IN Data::BitStream::XS list, IN int bits, IN unsigned long v)
+write(IN Data::BitStream::XS list, IN int bits, IN UV v)
   CODE:
     if (!list->is_writing) {
       croak("write while reading");
@@ -545,7 +545,7 @@ put_gamma_rice(IN Data::BitStream::XS list, IN int k, ...)
     PUT_CODEP(gamma_rice, k);
 
 void
-get_golomb_sub(IN Data::BitStream::XS list, IN SV* coderef, IN unsigned long m, IN int count = 1)
+get_golomb_sub(IN Data::BitStream::XS list, IN SV* coderef, IN UV m, IN int count = 1)
   PREINIT:
     SV* self = ST(0);
     SV* cref = 0;
@@ -567,7 +567,7 @@ get_golomb_sub(IN Data::BitStream::XS list, IN SV* coderef, IN unsigned long m, 
     GET_CODESPP(golomb_sub, self, cref, m);
 
 void
-put_golomb_sub(IN Data::BitStream::XS list, IN SV* coderef, IN unsigned long m, ...)
+put_golomb_sub(IN Data::BitStream::XS list, IN SV* coderef, IN UV m, ...)
   PREINIT:
     SV* self = ST(0);
     SV* cref = 0;
@@ -590,7 +590,7 @@ put_golomb_sub(IN Data::BitStream::XS list, IN SV* coderef, IN unsigned long m, 
 
 
 void
-get_gamma_golomb(IN Data::BitStream::XS list, IN unsigned long m, IN int count = 1)
+get_gamma_golomb(IN Data::BitStream::XS list, IN UV m, IN int count = 1)
   ALIAS:
     get_gammagolomb = 1
   PPCODE:
@@ -601,7 +601,7 @@ get_gamma_golomb(IN Data::BitStream::XS list, IN unsigned long m, IN int count =
     GET_CODEP(gamma_golomb, m);
 
 void
-put_gamma_golomb(IN Data::BitStream::XS list, IN unsigned long m, ...)
+put_gamma_golomb(IN Data::BitStream::XS list, IN UV m, ...)
   ALIAS:
     put_gammagolomb = 1
   CODE:
