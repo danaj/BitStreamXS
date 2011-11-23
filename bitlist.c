@@ -329,7 +329,6 @@ WTYPE sread(BitList *list, int bits)
     croak("invalid bits: %d", bits);
     return W_ZERO;
   }
-  //assert( (list->pos + bits) <= list->len );
   if ( (list->pos + bits) > list->len ) {
     croak("read off end of stream");
     return W_ZERO;
@@ -835,6 +834,7 @@ WTYPE get_omega (BitList *list)
   WTYPE v = W_ONE;
   int pos = list->pos;
   assert( list->pos < list->len );
+  /* TODO: sread will croak if off stream, but position needs to be reset */
   while ( (first_bit = sread(list, 1)) == W_ONE ) {
     if (v == BITS_PER_WORD) {
       return W_FFFF;
@@ -860,15 +860,15 @@ void put_omega (BitList *list, WTYPE value)
   WTYPE stack_v[BIT_STACK_SIZE];
 
   if (value == W_FFFF) {
-    // Write the code that will make v = BITS_PER_WORD
+    /* Write the code that will make v = BITS_PER_WORD */
     int fbits = 1 + (BITS_PER_WORD > 32);
     swrite(list, 1, 1);
-    swrite(list, 1, 0);        // v = 2
+    swrite(list, 1, 0);        /* v = 2                          */
     swrite(list, 1, 1);
-    swrite(list, 2, fbits);    // v = 5 (32-bit) or 6 (64-bit)
+    swrite(list, 2, fbits);    /* v = 5 (32-bit) or 6 (64-bit)   */
     swrite(list, 1, 1);
-    swrite(list, 4+fbits, 0);  // v = 2^5 (32)  /  2^6 (64)
-    swrite(list, 1, 1);        // Decode v as bit count
+    swrite(list, 4+fbits, 0);  /* v = 2^5 (32)  /  2^6 (64)      */
+    swrite(list, 1, 1);        /* Decode v as bit count          */
     return;
   }
 
@@ -990,14 +990,14 @@ WTYPE get_levenstein (BitList *list)
     int i;
     v = 1;
     for (i = 1; i < C; i++) {
-      if ( (list->pos + v) > list->len ) {
-        list->pos = pos;  /* restore position */
-        croak("read off end of stream");
-        return W_ZERO;
-      }
       if (v > BITS_PER_WORD) {
         list->pos = pos;  /* restore position */
         croak("code error: Levenstein overflow");
+        return W_ZERO;
+      }
+      if ( (list->pos + v) > list->len ) {
+        list->pos = pos;  /* restore position */
+        croak("read off end of stream");
         return W_ZERO;
       }
       v = (W_ONE << v) | sread(list, v);
@@ -1044,17 +1044,17 @@ WTYPE get_evenrodeh (BitList *list)
   assert( list->pos < list->len );
   v = sread(list, 3);
   if (v > 3) {
-    /* TODO: check that we won't go off stream */
+    /* TODO: sread will croak if off stream, but position needs to be reset */
     while ( (first_bit = sread(list, 1)) == W_ONE ) {
       v -= W_ONE;
-      if ( (list->pos + v) > list->len ) {
-        list->pos = pos;  /* restore position */
-        croak("read off end of stream");
-        return W_ZERO;
-      }
       if (v > BITS_PER_WORD) {
         list->pos = pos;  /* restore position */
         croak("code error: Even-Rodeh overflow");
+        return W_ZERO;
+      }
+      if ( (list->pos + v) > list->len ) {
+        list->pos = pos;  /* restore position */
+        croak("read off end of stream");
         return W_ZERO;
       }
       v = (W_ONE << v) | sread(list, v);

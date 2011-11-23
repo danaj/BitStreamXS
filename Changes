@@ -5,8 +5,17 @@ Revision history for Perl extension Data::BitStream::XS.
     an unsigned long in the .xs get_* macro.  Fixed.  After v0.02, pure 32-bit
     and pure 64-bit systems would work, but 64-bit Perl on 32-bit O/S didn't.
     It should work now.
-  - Allow Omega to encode 0 - ~0 instead of 0 - ~0-1.  All codes are full
-    range now.
+  - Allow Omega to encode 0 - ~0 instead of 0 - ~0-1.  All codes are full range.
+  - Better use of const pointers.
+  - Code run through valgrind.
+  - More consistent error status.
+  - On code errors or reading off end of stream, position should remain
+    unchanged (if they trap the croak).  Many codes have changes to make this
+    happen, and a new test is added to find a lot of these issues.  It is not
+    complete.
+  - Added examples, mainly copied from Data::BitStream.
+  - New fheader() and new(fheader => ...) methods added to finish off the
+    compatibility with Data::BitStream in file I/O.
 
 
 0.02

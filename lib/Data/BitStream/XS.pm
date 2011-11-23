@@ -486,8 +486,9 @@ to.
 
 A file is associated with the stream.  The contents of the file will be
 slurped into the stream.  The given number of header lines will be skipped
-at the start.  While the current implementation slurps the contents, later
-implementations may read from the file as the stream is read.
+at the start (with their contents put into fheader so they can be retrieved).
+While the current implementation slurps the contents, later implementations
+may read from the file as the stream is read.
 
 =item B< maxbits >
 
@@ -699,6 +700,14 @@ A helper function that performs C<erase> followed by C<write_open>.
 =item B< rewind_for_read >
 
 A helper function that performs C<write_close> followed by C<rewind>.
+
+=item B< fheader >
+
+Returns the contents of the header lines read if the C<fheaderlines> option was
+given to C<new>.A  This allows one to read the header of an image format, with
+the stream pointing to the data, and the header contents easily obtainable.
+Unfortunately it isn't completely generic, as it assumes a fixed number of
+lines.  An alternative API would be to have a user supplied sub.
 
 =back
 

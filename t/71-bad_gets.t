@@ -15,7 +15,7 @@ my @encodings = qw|
               ARice(2)
             |;
 
-plan tests => 40;
+plan tests => 40 + (1 * scalar @encodings);
 
 my $s = Data::BitStream::XS->new;
 my $v;
@@ -81,6 +81,17 @@ my $v;
     eval { $s->code_get($code); };
     like($@, qr/code error/i, "$code bad base");
     is($s->pos, 7, "Bad $code read left position unchanged");
+  }
+}
+
+{
+  # Something a little different: read from an empty stream.
+  $s->erase_for_write;
+  $s->rewind_for_read;
+  foreach my $code (@encodings) {
+    $s->rewind;
+    my $v = $s->code_get($code);
+    is($v, undef, "Empty stream returned undef for $code");
   }
 }
 
