@@ -8,10 +8,8 @@ use Time::HiRes qw(gettimeofday tv_interval);
 use FindBin;
 use lib "$FindBin::Bin/../lib";
 use lib "$FindBin::Bin/../t/lib";
-use BitStreamTest;
+use Data::BitStream::XS;
 use POSIX;
-
-my $type = 'wordvec';
 
 # Time with small, big, and mixed numbers.
 
@@ -25,20 +23,39 @@ sub ceillog2 {
 
 my @encodings = qw|
   gamma
-  bvzeta(2)
-  fib
+  boldivigna(2)
+  fibonacci
   deltagol(11)
   arice(0)
   omegagol(11)
-  ss(3-1-3)
-  gg(6)
-  eg(3)
-  sss(3-1-10)
+  startstop(3-1-3)
+  gammagolomb(6)
+  expgolomb(3)
+  startstepstop(3-1-10)
   baer(1)
   golomb(6)
-  ss(3-0-0-1-3)
+  startstop(3-0-0-1-3)
   rice(3)
 |;
+
+# Register these codes with the D:B:XS code_* routines, so we can reference
+# them by name.
+Data::BitStream::XS::add_code(
+    { package   => __PACKAGE__,
+      name      => 'DeltaGol',
+      universal => 1,
+      params    => 1,
+      encodesub => sub {shift->put_golomb( sub {shift->put_delta(@_)}, @_ )},
+      decodesub => sub {shift->get_golomb( sub {shift->get_delta(@_)}, @_ )}, }
+);
+Data::BitStream::XS::add_code(
+    { package   => __PACKAGE__,
+      name      => 'OmegaGol',
+      universal => 1,
+      params    => 1,
+      encodesub => sub {shift->put_golomb( sub {shift->put_omega(@_)}, @_ )},
+      decodesub => sub {shift->get_golomb( sub {shift->get_omega(@_)}, @_ )}, }
+);
 
 my $list_n = 10000;
 my @list;
@@ -75,85 +92,20 @@ my $bytes = int(ceillog2(max @list) * scalar @list / 8);
 
 #push @encodings, 'golomb(' . int(0.69 * $avg) . ')';
 
-if (0) {
-  my $minsize = 140000;
-  my $maxval = max @list;
-  foreach my $p1 (0 .. 8) {
-  foreach my $p2 (0 .. 8) {
-    next unless ($p1 + $p2) <= 8;
-    next unless BitStream::Code::StartStop::max_code_for_startstop([$p1,$p2]) >= $maxval;
-    my $stream = stream_encode_array($type, "ss($p1-$p2)", @list);
-    my $len = $stream->len;
-    if ($len < $minsize) {
-      print "new min:  $len   ss($p1-$p2)\n";
-      $minsize = $len;
-    }
-  }
-  }
-  foreach my $p1 (0 .. 8) {
-  foreach my $p2 (0 .. 8) {
-  foreach my $p3 (0 .. 8) {
-    next unless ($p1 + $p2 + $p3) <= 8;
-    next unless BitStream::Code::StartStop::max_code_for_startstop([$p1,$p2,$p3]) >= $maxval;
-    my $stream = stream_encode_array($type, "ss($p1-$p2-$p3)", @list);
-    my $len = $stream->len;
-    if ($len < $minsize) {
-      print "new min:  $len   ss($p1-$p2-$p3)\n";
-      $minsize = $len;
-    }
-  }
-  }
-  }
-  foreach my $p1 (0 .. 8) {
-  foreach my $p2 (0 .. 8) {
-  foreach my $p3 (0 .. 8) {
-  foreach my $p4 (0 .. 8) {
-    next unless ($p1 + $p2 + $p3 + $p4) <= 8;
-    next unless BitStream::Code::StartStop::max_code_for_startstop([$p1,$p2,$p3,$p4]) >= $maxval;
-    my $stream = stream_encode_array($type, "ss($p1-$p2-$p3-$p4)", @list);
-    my $len = $stream->len;
-    if ($len < $minsize) {
-      print "new min:  $len   ss($p1-$p2-$p3-$p4)\n";
-      $minsize = $len;
-    }
-  }
-  }
-  }
-  }
-  foreach my $p1 (0 .. 8) {
-  foreach my $p2 (0 .. 8) {
-  foreach my $p3 (0 .. 8) {
-  foreach my $p4 (0 .. 8) {
-  foreach my $p5 (0 .. 8) {
-    next unless ($p1 + $p2 + $p3 + $p4 + $p5) <= 8;
-    next unless BitStream::Code::StartStop::max_code_for_startstop([$p1,$p2,$p3,$p4, $p5]) >= $maxval;
-    my $stream = stream_encode_array($type, "ss($p1-$p2-$p3-$p4-$p5)", @list);
-    my $len = $stream->len;
-    if ($len < $minsize) {
-      print "new min:  $len   ss($p1-$p2-$p3-$p4-$p5)\n";
-      $minsize = $len;
-    }
-  }
-  }
-  }
-  }
-  }
-}
-
-
 print "List (avg $avg, max ", max(@list), ", $bytes binary):\n";
 time_list($_, @list) for (@encodings);
 
 sub time_list {
   my $encoding = shift;
   my @list = @_;
+  my $stream = Data::BitStream::XS->new;
   my $s1 = [gettimeofday];
-  my $stream = stream_encode_array($type, $encoding, @list);
-  die "Stream ($encoding) construction failure" unless defined $stream;
+  $stream->code_put($encoding, @list);
   my $e1 = int(tv_interval($s1)*1_000_000);
   my $len = $stream->len;
   my $s2 = [gettimeofday];
-  my @a = stream_decode_array($encoding, $stream);
+  $stream->rewind_for_read;
+  my @a = $stream->code_get($encoding, -1);
   my $e2 = int(tv_interval($s2)*1_000_000);
   foreach my $i (0 .. $#list) {
       die "incorrect $encoding coding for $i" if $a[$i] != $list[$i];
