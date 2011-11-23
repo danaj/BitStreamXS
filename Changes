@@ -1,6 +1,6 @@
 Revision history for Perl extension Data::BitStream::XS.
 
-0.03
+0.03    23 Nov 2011
   - Tracked down the LLP64 (32-bit long, 64-bit long long) issue down to using
     an unsigned long in the .xs get_* macro.  Fixed.  After v0.02, pure 32-bit
     and pure 64-bit systems would work, but 64-bit Perl on 32-bit O/S didn't.
@@ -18,7 +18,7 @@ Revision history for Perl extension Data::BitStream::XS.
     compatibility with Data::BitStream in file I/O.
 
 
-0.02
+0.02     9 Nov 2011
   - Fix tests on 5.6/5.8 that broke things at the last minute.
   - Change // comments and mixed declarations to allow compilation with
     old C compilers (--std=c89 --ansi -pedantic).
