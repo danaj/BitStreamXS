@@ -16,7 +16,7 @@ WriteMakefile(
     OBJECT       => 'bitlist.o XS.o',
 
     PREREQ_PM => {
-                    'Test::More'       => '0.47',
+                    'Test::More'       => '0.45',
                     'Exporter'         => '5.562',
                  },
 );
