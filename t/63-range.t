@@ -15,6 +15,25 @@ eval {require List::Util; 1;} or do {
 };
 use Test::More;
 use Data::BitStream::XS qw(code_is_universal);
+
+# Register some additional routines so we can test them
+Data::BitStream::XS::add_code(
+    { package   => __PACKAGE__,
+      name      => 'DeltaGol',
+      universal => 1,
+      params    => 1,
+      encodesub => sub {shift->put_golomb( sub {shift->put_delta(@_)}, @_ )},
+      decodesub => sub {shift->get_golomb( sub {shift->get_delta(@_)}, @_ )}, }
+);
+Data::BitStream::XS::add_code(
+    { package   => __PACKAGE__,
+      name      => 'OmegaGol',
+      universal => 1,
+      params    => 1,
+      encodesub => sub {shift->put_golomb( sub {shift->put_omega(@_)}, @_ )},
+      decodesub => sub {shift->get_golomb( sub {shift->get_omega(@_)}, @_ )}, }
+);
+
 my @encodings = qw|
               Unary Unary1 Gamma Delta Omega
               Fibonacci EvenRodeh Levenstein
@@ -24,10 +43,11 @@ my @encodings = qw|
               BoldiVigna(2) Baer(0) Baer(-2) Baer(2)
               StartStepStop(3-3-99) StartStop(1-0-1-0-2-12-99)
               ARice(2)
+              OmegaGol(19) DeltaGol(7777)
             |;
 
 # Perl 5.6.2 64-bit support is problematic
-my $maxval = ($] < 5.8)  ?  0xFFFFFFFF  :  ~0;
+my $maxval = ($] < 5.008)  ?  0xFFFFFFFF  :  ~0;
 my @maxdata = (0, 1, 2, 33, 65, 129,
                ($maxval >> 1) - 2,
                ($maxval >> 1) - 1,
