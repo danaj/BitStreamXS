@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 
-use Test::More  tests => 38;
+use Test::More  tests => 39;
 
 use Data::BitStream::XS;
 my $v = Data::BitStream::XS->new;
@@ -77,4 +77,15 @@ foreach my $k (0 .. 31) {
   #        $self->get_unary(@_); },
   #  $m, $nitems);
   is_deeply( \@v, \@a, "golomb($m) 0-257");
+}
+
+{
+  # Store a 32-bit or 43-bit number using delta.
+  # This is a crude test of 64-bit storage.
+  my $n = ($v->maxbits < 43) ? 2908947141 : 4052739537881;
+  $v->erase_for_write;
+  $v->put_golomb(sub { shift->put_delta(@_); }, 1, $n);
+  $v->rewind_for_read;
+  $val = $v->get_golomb(sub { shift->get_delta(@_); }, 1, 1);
+  is($val, $n, "deltagolomb encode $n");
 }

@@ -51,7 +51,7 @@ static WTYPE call_get_sub(SV* self, SV* code, BitList* list)
   if (count != 1)
     croak("get sub should return one value");
 
-  v = POPul;                         /* Get the returned value              */
+  v = POPu;                          /* Get the returned value              */
 
   /* TODO:
    *   Something isn't right here -- the stack is messed up if I do the

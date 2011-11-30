@@ -1,5 +1,12 @@
 Revision history for Perl extension Data::BitStream::XS.
 
+0.04    -- --- ----
+  - get sub was using POPul -- should use either POPu or POPul/POPuq.  Changed
+    to POPu and added a simple test.  Data::BitStream has more extensive tests
+    that found this when testing the 'xs' implementation (this module) on LLP64
+    systems (generally 64-bit Perl on 32-bit O/S).  This did not effect LP64
+    systems (generally 64-bit Perl on 64-bit O/S).
+
 0.03    23 Nov 2011
   - Tracked down the LLP64 (32-bit long, 64-bit long long) issue down to using
     an unsigned long in the .xs get_* macro.  Fixed.  After v0.02, pure 32-bit
