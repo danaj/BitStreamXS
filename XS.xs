@@ -332,6 +332,9 @@ to_raw(IN Data::BitStream::XS list)
     RETVAL
 
 void
+put_raw(IN Data::BitStream::XS list, IN const char* str, IN int bits)
+
+void
 from_raw(IN Data::BitStream::XS list, IN const char* str, IN int bits)
 
 void

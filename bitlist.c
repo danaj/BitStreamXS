@@ -559,6 +559,23 @@ char* to_raw(BitList *list)
   }
   return buf;
 }
+void put_raw(BitList *list, const char* str, int bits)
+{
+  if ( (str == 0) || (bits < 0) ) {
+    croak("invalid input to put_raw");
+    return;
+  }
+  const char* bptr = str;
+  int bytes = bits / 8;
+  while (bytes-- > 0) {
+    swrite(list, 8, *bptr++);
+  }
+  bits = bits % 8;
+  if (bits > 0) {
+    int val = (*bptr & 0xFF) >> (8-bits);
+    swrite(list, bits, val);
+  }
+}
 void from_raw(BitList *list, const char* str, int bits)
 {
   if ( (str == 0) || (bits < 0) ) {
