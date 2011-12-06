@@ -6,6 +6,8 @@ Revision history for Perl extension Data::BitStream::XS.
     that found this when testing the 'xs' implementation (this module) on LLP64
     systems (generally 64-bit Perl on 32-bit O/S).  This did not effect LP64
     systems (generally 64-bit Perl on 64-bit O/S).
+  - Use Inline C when possible for image compression example.
+  - Add put_raw implementation.
 
 0.03    23 Nov 2011
   - Tracked down the LLP64 (32-bit long, 64-bit long long) issue down to using

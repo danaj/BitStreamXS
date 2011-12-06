@@ -7,7 +7,7 @@ BEGIN {
   $Data::BitStream::XS::AUTHORITY = 'cpan:DANAJ';
 }
 BEGIN {
-  $Data::BitStream::XS::VERSION = '0.03';
+  $Data::BitStream::XS::VERSION = '0.04';
 }
 
 # parent is cleaner, and in the Perl 5.10.1 / 5.12.0 core, but not earlier.
@@ -77,6 +77,8 @@ sub put_stream {
   } else {
     return 0 unless $source->can('to_string');
     $self->put_string($source->to_string);
+    # WordVec is still slow with this (it needs a fast put_raw)
+    # $self->put_raw($source->to_raw, $source->len);
   }
   1;
 }
@@ -430,11 +432,11 @@ This code provides a nearly drop-in XS replacement for the L<Data::BitStream>
 module.  If you do not need the flexibility of the Moose/Mouse system, you can
 use this directly.
 
-As of version 0.03, the L<Data::BitStream> class will attempt to use this class
-if it is available.  Most operations will be 50-100 times faster, while not
-sacrificing any of its flexibility, so it is highly recommended.  In other
-words, if this module is installed, any code using L<Data::BitStream> will
-automatically speed up.
+Versions 0.03 and later of the L<Data::BitStream> class will attempt to use
+this XS class if it is available.  Most operations will be 50-100 times faster,
+while not sacrificing any of its flexibility, so it is highly recommended.  In
+other words, if this module is installed, any code using L<Data::BitStream>
+will automatically speed up.
 
 While direct use of the XS class is a bit faster than going through Mouse/Moose,
 the vast majority of the benefit is internal.  Hence, for maximum portability
