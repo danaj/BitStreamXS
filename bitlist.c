@@ -149,7 +149,7 @@ int resize(BitList *list, int bits)
     int newwords = NWORDS(bits);
     list->data = (WTYPE*) realloc(list->data, newwords * sizeof(WTYPE));
     if (list->data == 0) {
-      croak("failed to alloc %d bits", bits);
+      croak("allocation failure: could not alloc %d bits", bits);
     } else if (newwords > oldwords) {
       /* Zero out any new allocated space */
       memset( list->data + oldwords,  0,  (newwords-oldwords)*sizeof(WTYPE) );
@@ -215,7 +215,7 @@ void read_open(BitList *list)
     unsigned long bits;
     FILE* fh = fopen(list->file, "r");
     if (!fh) {
-      croak("Cannot open file %s", list->file);
+      croak("Cannot open file '%s' for read", list->file);
       return;
     }
     /* Read in their header lines.  This is hacky. */
@@ -304,7 +304,7 @@ void write_close(BitList *list)
         return;
       fh = fopen(list->file, "w");
       if (!fh) {
-        croak("Cannot open file %s", list->file);
+        croak("Cannot open file '%s' for write", list->file);
       } else {
         if (list->file_header != 0)
           fprintf(fh, "%s\n", list->file_header);
@@ -489,7 +489,7 @@ char* read_string(BitList *list, int bits)
   assert (bits <= (list->len - list->pos));
   buf = (char*) malloc(bits+1);
   if (buf == 0) {
-    croak("alloc failure");
+    croak("allocation failure: could not alloc %d bits", bits+1);
     return 0;
   }
 #if 0
