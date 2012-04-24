@@ -21,6 +21,18 @@
  */
 #define BLSTGROW 64
 
+static int is_positive_number(const char* str) {
+  int i;
+  int len = strlen(str);
+  if (len == 0)
+    return 0;
+  for (i = 0; i < len; i++) {
+    if (!isdigit(str[i]))
+      return 0;
+  }
+  return 1;
+}
+
 /* This is C99, and has to be wrapped in HAS_C99_VARIADIC_MACROS.
  * TODO: Find a non-variadic way to do the same thing.
  */
@@ -62,8 +74,15 @@
       croak("write while reading"); \
     } else { \
       int c = (nargs); \
-      while (++c < items) \
-        put_ ## codename(__VA_ARGS__, SvUV(ST(c))); \
+      STRLEN alen; \
+      while (++c < items) { \
+        SV *sv = ST(c); \
+        if ( !SvOK(sv) ) \
+          croak("value must be >= 0");  /* undef */ \
+        if ( (SvIV(sv) < 0) && !is_positive_number(SvPV(sv, alen)) ) \
+          croak("value must be >= 0");  /* negative number */ \
+        put_ ## codename(__VA_ARGS__, SvUV(sv)); \
+      } \
     }
 
 #define GET_CODE(cn)          GET_CODEVP(cn, 0, list)

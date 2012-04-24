@@ -689,7 +689,10 @@ WTYPE get_unary (BitList *list)
 void put_unary (BitList *list, WTYPE value)
 {
   int len, bits, wpos, bpos;
-  /* Simple way to do this:   swrite(list, value+1, 1); */
+
+  assert(value >= 0);
+
+  /* Simple way to do this:   swrite(list, value+1, W_ONE); */
   len = list->len;
   bits = value+1;
 
@@ -756,6 +759,8 @@ void put_unary1 (BitList *list, WTYPE value)
   int bpos = len % BITS_PER_WORD;
   int first_bits = BITS_PER_WORD - bpos;
 
+  assert(value >= 0);
+
   expand_list(list, len+value+1);
 
   if ( (bpos > 0) && (first_bits <= value) ) {
@@ -795,6 +800,7 @@ WTYPE get_gamma (BitList *list)
 
 void put_gamma (BitList *list, WTYPE value)
 {
+  assert(value >= 0);
   if (value == W_ZERO) {
     swrite(list, 1, 1);
   } else if (value == W_FFFF) {
