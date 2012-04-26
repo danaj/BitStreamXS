@@ -38,11 +38,11 @@ eval { $v->code_get('Rice'); };
 like($@, qr/needs .* parameter/, "code_get with Rice no parameters");
 
 eval { $v->write(0, 2); };
-like($@, qr/invalid bits/, "write invalid bits: 0");
+like($@, qr/invalid param.*bits/, "write invalid bits: 0");
 eval { $v->write(-4, 2); };
-like($@, qr/invalid bits/, "write invalid bits: -4");
+like($@, qr/invalid param.*bits/, "write invalid bits: -4");
 eval { $v->write(1025, 2); };
-like($@, qr/invalid bits/, "write invalid bits: 1025");
+like($@, qr/invalid param.*bits/, "write invalid bits: 1025");
 
 
 eval { $v->rewind; };
@@ -68,21 +68,21 @@ like($@, qr/read while writing/, "get_gamma while writing");
 
 $v->rewind_for_read;
 eval { $v->read(0); };
-like($@, qr/invalid bits/, "read invalid bits: 0");
+like($@, qr/invalid param.*bits/, "read invalid bits: 0");
 eval { $v->read(-4); };
-like($@, qr/invalid bits/, "read invalid bits: -4");
+like($@, qr/invalid param.*bits/, "read invalid bits: -4");
 eval { $v->read(1025); };
-like($@, qr/invalid bits/, "read invalid bits: 1025");
+like($@, qr/invalid param.*bits/, "read invalid bits: 1025");
 
 eval { $v->readahead(0); };
-like($@, qr/invalid bits/, "readahead invalid bits: 0");
+like($@, qr/invalid param.*bits/, "readahead invalid bits: 0");
 eval { $v->readahead(-4); };
-like($@, qr/invalid bits/, "readahead invalid bits: -4");
+like($@, qr/invalid param.*bits/, "readahead invalid bits: -4");
 eval { $v->readahead(1025); };
-like($@, qr/invalid bits/, "readahead invalid bits: 1025");
+like($@, qr/invalid param.*bits/, "readahead invalid bits: 1025");
 
 eval { $v->read_string(-3); };
-like($@, qr/invalid bits/, "read_string invalid bits: -3");
+like($@, qr/invalid param.*bits/, "read_string invalid bits: -3");
 is( $v->read_string(0), "", "read_string(0) returns empty string");
 eval { $v->read_string(1000); };
 like($@, qr/short read/, "read string with too many bits");

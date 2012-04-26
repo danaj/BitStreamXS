@@ -255,7 +255,7 @@ read(IN Data::BitStream::XS list, IN int bits, IN const char* flags = 0)
       XSRETURN_UNDEF;
     }
     if ( (bits <= 0) || (bits > BITS_PER_WORD) ) {
-      croak("invalid bits: %d", bits);
+      croak("invalid parameters: bits %d must be 1-%d",bits,(int)BITS_PER_WORD);
       XSRETURN_UNDEF;
     }
     readahead = (flags != 0) && (strcmp(flags, "readahead") == 0);
@@ -279,7 +279,7 @@ readahead(IN Data::BitStream::XS list, IN int bits)
       XSRETURN_UNDEF;
     }
     if ( (bits <= 0) || (bits > BITS_PER_WORD) ) {
-      croak("invalid bits: %d", bits);
+      croak("invalid parameters: bits %d must be 1-%d",bits,(int)BITS_PER_WORD);
       XSRETURN_UNDEF;
     }
     if (list->pos >= list->len)
@@ -296,7 +296,7 @@ write(IN Data::BitStream::XS list, IN int bits, IN UV v)
       XSRETURN_UNDEF;
     }
     if ( (bits <= 0) || ( (v > 1) && (bits > BITS_PER_WORD) ) ) {
-      croak("invalid bits: %d", bits);
+      croak("invalid parameters: bits %d must be 1-%d",bits,(int)BITS_PER_WORD);
       XSRETURN_UNDEF;
     }
     swrite(list, bits, v);
@@ -320,7 +320,7 @@ read_string(IN Data::BitStream::XS list, IN int bits)
     if (list->is_writing)
       { croak("read while writing"); XSRETURN_UNDEF; }
     if (bits < 0)
-      { croak("invalid bits: %d", bits); XSRETURN_UNDEF; }
+      { croak("invalid parameters: bits %d must be >= 0",bits); XSRETURN_UNDEF;}
     if (bits > (list->len - list->pos))
       { croak("short read"); XSRETURN_UNDEF; }
     buf = read_string(list, bits);

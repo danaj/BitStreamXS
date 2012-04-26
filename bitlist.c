@@ -326,7 +326,7 @@ WTYPE sread(BitList *list, int bits)
   int wpos, bpos, wlen;
 
   if ( (bits <= 0) || (bits > BITS_PER_WORD) ) {
-    croak("invalid bits: %d", bits);
+    croak("invalid parameters: bits %d must be 1-%d", bits, (int)BITS_PER_WORD);
     return W_ZERO;
   }
   if ( (list->pos + bits) > list->len ) {
@@ -360,7 +360,7 @@ WTYPE sreadahead(BitList *list, int bits)
   int shift, wpos, bpos, wlen;
 
   if ( (bits <= 0) || (bits > BITS_PER_WORD) ) {
-    croak("invalid bits: %d", bits);
+    croak("invalid parameters: bits %d must be 1-%d", bits, (int)BITS_PER_WORD);
     return W_ZERO;
   }
 
@@ -399,7 +399,7 @@ void swrite(BitList *list, int bits, WTYPE value)
   int wpos, bpos, wlen;
 
   if (bits <= 0) {
-    croak("invalid bits: %d", bits);
+    croak("invalid parameters: bits %d must be > 0", bits);
     return;
   }
 
@@ -416,7 +416,7 @@ void swrite(BitList *list, int bits, WTYPE value)
 
   /* We allowed writing 0 and 1 with any number of positive bits. */
   if (bits > BITS_PER_WORD) {
-    croak("invalid bits: %d", bits);
+    croak("invalid parameters: bits %d must be 1-%d", bits, (int)BITS_PER_WORD);
     return;
   }
 
@@ -950,6 +950,11 @@ WTYPE get_fib (BitList *list)
     if (b > maxfibv) {
       list->pos = pos;  /* restore position */
       croak("code error: Fibonacci overflow");
+      return W_ZERO;
+    }
+    if (list->pos >= list->len) {
+      list->pos = pos;  /* restore position */
+      croak("read off end of stream");
       return W_ZERO;
     }
     v += fibv[b];
