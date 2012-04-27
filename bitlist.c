@@ -1007,6 +1007,138 @@ void put_fib (BitList *list, WTYPE value)
   }
 }
 
+/* Generalized Fibonacci codes */
+#define MAX_FIBGEN_M 16
+static WTYPE fibm_val[MAX_FIBGEN_M-1][MAXFIB] = {0};
+static WTYPE fibm_sum[MAX_FIBGEN_M-1][MAXFIB] = {0};
+static int   fibm_max[MAX_FIBGEN_M-1] = {0};
+static void _calc_fibm(int m)
+{
+  assert( (m >= 2) && (m <= MAX_FIBGEN_M) );
+  WTYPE* fv = &(fibm_val[m-2][0]);
+
+  if (fv[0] == 0) {
+    int i,j;
+    fv[0] = 1;
+    fv[1] = 2;
+    for (i = 2; i < MAXFIB; i++) {
+      WTYPE sum = fv[i-1] + (m > i);
+      for (j = 2; (j <= m) && (j <= i); j++)
+        sum += fv[i-j];
+      fv[i] = sum;
+      if (fv[i] < fv[i-1]) {
+        fibm_max[m-2] = i-1;
+        break;
+      }
+    }
+    assert(fibm_max[m-2] > 0);
+    /* calculate sums */
+    WTYPE* fs = &(fibm_sum[m-2][0]);
+    fs[0] = fv[0];
+    for (i = 1; i <= fibm_max[m-2]; i++) {
+      WTYPE sum = fs[i-1] + fv[i];
+      if (sum < fs[i-1])  sum = W_FFFF;
+      fs[i] = sum;
+    }
+  }
+}
+
+WTYPE get_fibgen (BitList *list, int m)
+{
+  int s;
+  WTYPE code, next, term, v;
+  WTYPE* fv = &(fibm_val[m-2][0]);
+  WTYPE* fs = &(fibm_sum[m-2][0]);
+  int fmax = fibm_max[m-2];
+  int pos = list->pos;
+
+  assert( list->pos < list->len );
+  _calc_fibm(m);
+  term = ~(W_FFFF << m);   /*   000001..1 */
+
+  code = sread(list, m);
+  if ((code & term) == term)  return W_ZERO;
+
+  next = sread(list, 1);
+  code = (code << 1) | next;
+  if ((code & term) == term)  return W_ONE;
+
+  v = W_ONE;
+  s = 0;
+
+  do {
+    if (list->pos >= list->len) {
+      list->pos = pos;  /* restore position */
+      croak("read off end of stream");
+      return W_ZERO;
+    }
+    WTYPE trail = sread(list, 1);
+    next = (code >> m) & 1;
+    code = (code << 1) | trail;
+    if (next) {
+      if (s > fmax) {
+        list->pos = pos;  /* restore position */
+        croak("code error: Fibonacci overflow");
+        return W_ZERO;
+      }
+      v += fv[s];
+    }
+    s++;
+  } while ((code & term) != term);
+  v += fs[s-1];
+  return v;
+}
+
+void put_fibgen (BitList *list, int m, WTYPE value)
+{
+  WTYPE term;
+
+  _calc_fibm(m);
+  term = ~(W_FFFF << m);   /*   000001..1 */
+
+  if (value == 0) {
+    swrite(list, m, term);
+  } else if (value == 1) {
+    swrite(list, m+1, term);
+  } else {
+    int   sp = 0;
+    int   stack_b[BIT_STACK_SIZE];
+    WTYPE stack_v[BIT_STACK_SIZE];
+    WTYPE* fv = &(fibm_val[m-2][0]);
+    WTYPE* fs = &(fibm_sum[m-2][0]);
+    int fmax = fibm_max[m-2];
+    int s, bits;
+    WTYPE v, word;
+
+    s = 1;
+    while ( (s <= fmax) && (value > fs[s]))
+      s++;
+    v = value - fs[s-1] - 1;
+
+    /* Current word we're constructing.  Trailing '011' filled in. */
+    word = term;
+    bits = m+1;
+
+    while (s-- > 0) {
+      assert(sp < BIT_STACK_SIZE);
+      if (v >= fv[s]) {
+        v -= fv[s];
+        word |= (W_ONE << bits);
+      }
+      bits++;
+      if (bits >= BITS_PER_WORD) {
+        stack_b[sp] = bits;  stack_v[sp] = word;  sp++;
+        bits = 0;
+        word = 0;
+      }
+    }
+    if (bits)
+      swrite(list, bits, word);
+    while (sp-- > 0)
+      swrite(list, stack_b[sp], stack_v[sp]);
+  }
+}
+
 WTYPE get_levenstein (BitList *list)
 {
   WTYPE C, v;

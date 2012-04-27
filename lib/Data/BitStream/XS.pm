@@ -246,6 +246,12 @@ my @_initinfo = (
       encodesub => sub {shift->put_fib(@_)},
       decodesub => sub {shift->get_fib(@_)}, },
     { package   => __PACKAGE__,
+      name      => 'FibGen',
+      universal => 1,
+      params    => 1,
+      encodesub => sub {shift->put_fibgen(@_)},
+      decodesub => sub {shift->get_fibgen(@_)}, },
+    { package   => __PACKAGE__,
       name      => 'Golomb',
       universal => 0,
       params    => 1,
@@ -794,6 +800,15 @@ Reads/writes one or more values from the stream in Even-Rodeh coding.
 Reads/writes one or more values from the stream in Fibonacci coding.
 Specifically, the order C<m=2> C1 codes of Fraenkel and Klein.
 
+=item B< get_fibgen($m [, $count]) >
+
+=item B< put_fibgen($m, @values) >
+
+Reads/writes one or more values from the stream in generalized Fibonacci
+coding.  The order C<m> should be between 2 and 16.  These codes are
+described in Klein and Ben-Nissan (2004).  For C<m=2> the results are
+identical to the standard C1 form.
+
 =item B< get_golomb($m [, $count]) >
 
 =item B< put_golomb($m, @values) >
@@ -931,7 +946,7 @@ Dana Jacobsen E<lt>dana@acm.orgE<gt>
 
 =head1 COPYRIGHT
 
-Copyright 2011 by Dana Jacobsen E<lt>dana@acm.orgE<gt>
+Copyright 2011-2012 by Dana Jacobsen E<lt>dana@acm.orgE<gt>
 
 This program is free software; you can redistribute it and/or modify it under the same terms as Perl itself.
 

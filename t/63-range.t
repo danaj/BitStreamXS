@@ -36,7 +36,7 @@ Data::BitStream::XS::add_code(
 
 my @encodings = qw|
               Unary Unary1 Gamma Delta Omega
-              Fibonacci EvenRodeh Levenstein
+              Fibonacci FibGen(3) EvenRodeh Levenstein
               Golomb(10) Golomb(16) Golomb(14000)
               Rice(2) Rice(9)
               GammaGolomb(3) GammaGolomb(128) ExpGolomb(5)

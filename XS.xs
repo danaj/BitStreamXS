@@ -427,6 +427,24 @@ put_fib(IN Data::BitStream::XS list, ...)
     PUT_CODE(fib);
 
 void
+get_fibgen(IN Data::BitStream::XS list, IN int m, IN int count = 1)
+  PPCODE:
+    if ( (m < 2) || (m > 16) ) {
+      croak("invalid parameters: fibgen %d", m);
+      XSRETURN_UNDEF;
+    }
+    GET_CODEP(fibgen, m);
+
+void
+put_fibgen(IN Data::BitStream::XS list, IN int m, ...)
+  CODE:
+    if ( (m < 2) || (m > 16) ) {
+      croak("invalid parameters: fibgen %d", m);
+      return;
+    }
+    PUT_CODEP(fibgen, m);
+
+void
 get_levenstein(IN Data::BitStream::XS list, IN int count = 1)
   PPCODE:
     GET_CODE(levenstein);
