@@ -790,7 +790,7 @@ WTYPE get_gamma (BitList *list)
     v = W_FFFF;
   } else if (base > BITS_PER_WORD) {
     list->pos = pos;  /* restore position */
-    croak("code error: Gamma base %lu", base);
+    croak("code error: Gamma base %lu", (unsigned long)base);
     return W_ZERO;
   } else {
     v = ( (W_ONE << base) | sread(list, base) ) - W_ONE;
@@ -827,7 +827,7 @@ WTYPE get_delta (BitList *list)
     v = W_FFFF;
   } else if (base > BITS_PER_WORD) {
     list->pos = pos;  /* restore position */
-    croak("code error: Delta base %lu", base);
+    croak("code error: Delta base %lu", (unsigned long)base);
     return W_ZERO;
   } else {
     v = ( (W_ONE << base) | sread(list, base) ) - W_ONE;
@@ -970,13 +970,18 @@ void put_fib (BitList *list, WTYPE value)
   int s, bits;
   WTYPE v, word;
 
+  if (value < 2) {
+    swrite(list, 2+value, W_CONST(3));
+    return;
+  }
+
   _calc_fibv();
 
   /* We're constructing a big code backwards.  We fill in a word backwards,
    * then add it to a stack when full.  When done, we pop off each word from
    * the stack and write it. */
 
-  s = 0;
+  s = 3;  // 0 and 1 taken care of earlier, so value >= 2
   while ( (s <= maxfibv) && (value >= (fibv[s]-1)) )
     s++;
 
