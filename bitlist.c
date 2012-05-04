@@ -768,9 +768,17 @@ void put_unary1 (BitList *list, WTYPE value)
     bpos = 0;
     value -= first_bits;
   }
-  while (value > BITS_PER_WORD) {
-    list->data[wpos++] = W_FFFF;
-    value -= BITS_PER_WORD;
+  /* Straightforward word-setting code:
+   *   while (value > BITS_PER_WORD) {
+   *     list->data[wpos++] = W_FFFF;
+   *     value -= BITS_PER_WORD;
+   *   }
+   */
+  if (value >= BITS_PER_WORD) {
+    int nwords = value / BITS_PER_WORD;
+    memset((char*) (list->data + wpos), 0xFF, nwords * sizeof(WTYPE));
+    value -= nwords * BITS_PER_WORD;
+    wpos += nwords;
   }
   if (value > 0)
     list->data[wpos] |= ( (W_FFFF << (BITS_PER_WORD-value)) >> bpos);
@@ -981,7 +989,7 @@ void put_fib (BitList *list, WTYPE value)
    * then add it to a stack when full.  When done, we pop off each word from
    * the stack and write it. */
 
-  s = 3;  // 0 and 1 taken care of earlier, so value >= 2
+  s = 3;  /* 0 and 1 taken care of earlier, so value >= 2 */
   while ( (s <= maxfibv) && (value >= (fibv[s]-1)) )
     s++;
 
@@ -1051,7 +1059,7 @@ static void _calc_fibm(int m)
 WTYPE get_fibgen (BitList *list, int m)
 {
   int s;
-  WTYPE code, next, term, v;
+  WTYPE code, term, v;
   WTYPE* fv = &(fibm_val[m-2][0]);
   WTYPE* fs = &(fibm_sum[m-2][0]);
   int fmax = fibm_max[m-2];
@@ -1061,36 +1069,51 @@ WTYPE get_fibgen (BitList *list, int m)
   _calc_fibm(m);
   term = ~(W_FFFF << m);   /*   000001..1 */
 
-  code = sread(list, m);
-  if ((code & term) == term)  return W_ZERO;
+  /* For m=2, using get_unary works very well, as it will one or more bits
+   * in a single call, and the terminator is only two bits.  As m increases,
+   * more and more time is spent calling get_unary repeatedly to read the
+   * terminator.
+   *
+   * This code instead reads 1-m bits at a time, looking for the terminator.
+   * It could be slightly faster if it used readahead to get 16-32 bits at
+   * a time.
+   */
 
-  next = sread(list, 1);
-  code = (code << 1) | next;
-  if ((code & term) == term)  return W_ONE;
+  code = sread(list, m);
+  if (code == term)  return W_ZERO;
 
   v = W_ONE;
   s = 0;
+  while (1) {
+    int count, codelen, c;
 
-  do {
-    if (list->pos >= list->len) {
+    count = 0;  while (code & (1 << count))  count++;
+
+    codelen = m-count;
+    if (codelen == 0)
+      break;
+
+    if ( (list->pos + codelen) > list->len ) {
       list->pos = pos;  /* restore position */
       croak("read off end of stream");
       return W_ZERO;
     }
-    WTYPE trail = sread(list, 1);
-    next = (code >> m) & 1;
-    code = (code << 1) | trail;
-    if (next) {
+    code = (code << codelen) | sread(list, codelen);
+
+    for (c = m+codelen-1; c >= m; c--) {
       if (s > fmax) {
         list->pos = pos;  /* restore position */
         croak("code error: Fibonacci overflow");
         return W_ZERO;
       }
-      v += fv[s];
+      if (code & (1 << c))
+        v += fv[s];
+      s++;
     }
-    s++;
-  } while ((code & term) != term);
-  v += fs[s-1];
+    code &= term;
+  }
+  if (s >= 2)
+    v += fs[s-2];
   return v;
 }
 
