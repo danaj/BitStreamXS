@@ -305,6 +305,12 @@ my @_initinfo = (
       params    => 1,
       encodesub => sub {shift->put_startstepstop([split('-',shift)], @_)},
       decodesub => sub {shift->get_startstepstop([split('-',shift)], @_)}, },
+    { package   => __PACKAGE__,
+      name      => 'Comma',
+      universal => 1,
+      params    => 1,
+      encodesub => sub {shift->put_comma(@_)},
+      decodesub => sub {shift->get_comma(@_)}, },
    );
 my %codeinfo;
 

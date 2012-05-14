@@ -519,6 +519,24 @@ put_boldivigna(IN Data::BitStream::XS list, IN int k, ...)
     PUT_CODEP(boldivigna, k);
 
 void
+get_comma(IN Data::BitStream::XS list, IN int k, IN int count = 1)
+  PPCODE:
+    if ( (k < 1) || (k > 16) ) {
+      croak("invalid parameters: comma %d", k);
+      XSRETURN_UNDEF;
+    }
+    GET_CODEP(comma, k);
+
+void
+put_comma(IN Data::BitStream::XS list, IN int k, ...)
+  CODE:
+    if ( (k < 1) || (k > 16) ) {
+      croak("invalid parameters: comma %d", k);
+      return;
+    }
+    PUT_CODEP(comma, k);
+
+void
 get_rice_sub(IN Data::BitStream::XS list, IN SV* coderef, IN int k, IN int count = 1)
   PREINIT:
     SV* self = ST(0);
