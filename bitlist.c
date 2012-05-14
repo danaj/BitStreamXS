@@ -11,48 +11,62 @@
 
 static int verbose = 0;
 
-/* Enough for 32 writes plus a terminator */
-#define BIT_STACK_SIZE 33
+
+/********************  bit stack functions  ********************/
+
+#define BIT_STACK_SIZE 32
+/* min bits possible in stack:  ((BITS_PER_WORD/2)+1) * (BIT_STACK_SIZE+1) */
 
 typedef struct
 {
    int   sp;
+   int   top_bits;
+   WTYPE top_val;
    int   stack_b[BIT_STACK_SIZE];
    WTYPE stack_v[BIT_STACK_SIZE];
 } BitStack;
 static void init_bitstack(BitStack* b) {
   b->sp = 0;
+  b->top_bits = 0;
+  b->top_val = W_ZERO;
 }
 /* Combining writes when possible saves time.  If done in the push, it also
- * means our stack is limited by number of bits instead of number of pushes. */
+ * means our stack is limited by number of bits instead of number of pushes.
+ * This does a simple opportunistic combination instead of filling each word.
+ */
 static void push_bitstack(BitStack* b, int bits, WTYPE value) {
-  int sp = b->sp;
-  int curbits;
-  assert(sp < BIT_STACK_SIZE);
   value = value & (W_FFFF >> (BITS_PER_WORD - bits)); /* mask value */
-  curbits = (sp > 0)  ?  b->stack_b[sp-1]  :  (BITS_PER_WORD+1);
-  if ((curbits + bits) <= BITS_PER_WORD) {
-    b->stack_v[sp-1] |= (value << curbits);
-    b->stack_b[sp-1] += bits;
+  if ( (b->top_bits + bits) <= BITS_PER_WORD ) {
+    b->top_val  |= (value << b->top_bits);
+    b->top_bits += bits;
   } else {
-    b->stack_b[sp] = bits;
-    b->stack_v[sp] = value;
+    assert(b->sp < BIT_STACK_SIZE);
+    b->stack_b[b->sp] = b->top_bits;
+    b->stack_v[b->sp] = b->top_val;
     b->sp++;
+    b->top_bits = bits;
+    b->top_val = value;
   }
+  /* top_bits will always be > 0 if anything has been pushed */
 }
 static void write_bitstack(BitStack* b, BitList* list) {
-  while (b->sp-->0) {
-    swrite(list,b->stack_b[b->sp],b->stack_v[b->sp]);
+  if (b->top_bits > 0) {
+    swrite(list,b->top_bits,b->top_val);
+    while (b->sp-->0)
+      swrite(list,b->stack_b[b->sp],b->stack_v[b->sp]);
   }
 }
 
+
+/********************  how to grow list  ********************/
 static void expand_list(BitList *list, int len)
 {
   if ( len > list->maxlen )
     resize(list, 1.10 * (len+4096) );
 }
 
-/* This is for debugging */
+
+/********************  debugging  ********************/
 static char binstr[BITS_PER_WORD+1];
 static char* word_to_bin(WTYPE word)
 {
@@ -64,6 +78,8 @@ static char* word_to_bin(WTYPE word)
   binstr[BITS_PER_WORD] = '\0';
   return binstr;
 }
+
+/********************  dealing with sub calls  ********************/
 
 static WTYPE call_get_sub(SV* self, SV* code, BitList* list)
 {
@@ -119,6 +135,8 @@ static void call_put_sub(SV* self, SV* code, BitList* list, WTYPE value)
   LEAVE;
 }
 
+
+/********************  BitList basics  ********************/
 
 BitList *new(
   FileMode    mode,
@@ -236,6 +254,9 @@ int _set_pos(BitList *list, int newpos)
   return list->pos;
 }
 
+
+/********************  BitList file i/o  ********************/
+
 void read_open(BitList *list)
 {
   if (list->mode == eModeWO) {
@@ -352,6 +373,9 @@ void write_close(BitList *list)
   }
   assert(list->is_writing == 0);
 }
+
+
+/********************  BitList read/write  ********************/
 
 WTYPE sread(BitList *list, int bits)
 {
@@ -490,6 +514,9 @@ void swrite(BitList *list, int bits, WTYPE value)
 
   list->len = len + bits;
 }
+
+
+/********************  BitList basic put/get  ********************/
 
 void put_string(BitList *list, const char* s)
 {
