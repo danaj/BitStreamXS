@@ -17,7 +17,7 @@ sub ceillog2 {
   $b;
 }
 
-my $add_golomb = 1;
+my $add_golomb = 0;
 my @encodings;
 
 @encodings = qw|
@@ -41,9 +41,13 @@ my @encodings;
   ExpGolomb(3)
   StartStop(0-0-2-4-14)
   StartStepStop(3-2-20)
+  Comma(2)
+  Comma(3)
+  BlockTaboo(00)
+  BlockTaboo(010)
   BinWord(20)
 |;
-@encodings = qw|Unary Gamma Delta Omega Fibonacci Baer(-1)|;
+@encodings = qw|Gamma Delta Omega Fibonacci Baer(-1)|;
 
 my $list_n = 2048;
 my @list_small;
@@ -147,7 +151,7 @@ sub time_list {
   # convert total uS time into ns/value
   $e1 = int(1000 * ($e1 / scalar @list));
   $e2 = int(1000 * ($e2 / scalar @list));
-  printf "   %-17s: %8d bytes  %6d ns encode  %6d ns decode\n",
+  printf "   %-21s: %8d bytes %8d ns encode %8d ns decode\n",
          $encoding, int(($len+7)/8), $e1, $e2;
   $tot_encode_time += $e1;
   $tot_decode_time += $e2;
