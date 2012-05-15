@@ -482,6 +482,16 @@ put_evenrodeh(IN Data::BitStream::XS list, ...)
     PUT_CODE(evenrodeh);
 
 void
+get_goldbach_g1(IN Data::BitStream::XS list, IN int count = 1)
+  PPCODE:
+    GET_CODE(goldbach_g1);
+
+void
+put_goldbach_g1(IN Data::BitStream::XS list, ...)
+  CODE:
+    PUT_CODE(goldbach_g1);
+
+void
 get_binword(IN Data::BitStream::XS list, IN int k, IN int count = 1)
   PPCODE:
     if ( (k <= 0) || (k > BITS_PER_WORD) ) {

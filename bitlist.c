@@ -8,6 +8,7 @@
 #include "XSUB.h"
 
 #include "bitlist.h"
+#include "sequences.h"
 
 static int verbose = 0;
 
@@ -1292,6 +1293,51 @@ void put_evenrodeh (BitList *list, WTYPE value)
   WRITE_BITSTACK(list);
 }
 
+static PrimeArray prime_basis = { 0, 0, 0 };
+
+WTYPE get_goldbach_g1 (BitList *list)
+{
+  int i, j;
+  int pos = list->pos;
+  WTYPE value;
+  assert( pos < list->len );
+
+  i = get_gamma(list);
+  j = get_gamma(list) + i;
+  assert(j >= i);
+  if (prime_basis.curlen <= j) {
+    if (expand_primearray_index(&prime_basis, j) == 0) {
+      list->pos = pos;  /* restore position */
+      croak("code error: Goldbach G1 overflow");
+      return W_ZERO;
+    }
+    prime_basis.array[0] = 1;
+  }
+  value = prime_basis.array[i] + prime_basis.array[j];
+  return ((value/2)-1);
+}
+
+void put_goldbach_g1 (BitList *list, WTYPE value)
+{
+  int i, j;
+
+  value = (value+1) * 2;
+  if ((prime_basis.curlen == 0) || (prime_basis.array[prime_basis.curlen-1] < value)) {
+    if (expand_primearray_value(&prime_basis, value) == 0) {
+      croak("code error: Goldbach G1 overflow");
+      return;
+    }
+    prime_basis.array[0] = 1;
+  }
+
+  if (!find_best_pair(prime_basis.array, prime_basis.curlen, value, &i, &j)) {
+    croak("value out of range");
+    return;
+  }
+  put_gamma(list, (WTYPE)i);
+  put_gamma(list, (WTYPE)j);
+}
+
 WTYPE get_binword (BitList *list, int k)
 {
   return sread(list, k);
@@ -1372,7 +1418,7 @@ typedef struct {
   WTYPE  t [BITS_PER_WORD / 2];    /* threshold    */
 } bvzeta_map;
 
-bvzeta_map bvzeta_map_cache[16] = {0};
+static bvzeta_map bvzeta_map_cache[16] = {0};
 
 static void bv_make_param_map(int k)
 {

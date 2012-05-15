@@ -13,7 +13,7 @@ WriteMakefile(
     LIBS         => [''],   # e.g., '-lm'
     DEFINE       => '',     # e.g., '-DHAVE_SOMETHING'
     INC          => '',     # e.g., '-I/usr/include/other'
-    OBJECT       => 'bitlist.o XS.o',
+    OBJECT       => 'bitlist.o sequences.o XS.o',
 
     PREREQ_PM => {
                     'Test::More'       => '0.45',

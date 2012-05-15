@@ -7,6 +7,8 @@ lib/Data/BitStream/XS.pm
 XS.xs
 bitlist.c
 bitlist.h
+sequences.c
+sequences.h
 wtype.h
 typemap
 t/01-load.t
