@@ -12,6 +12,8 @@ my @encodings = qw|
               GammaGolomb(3) GammaGolomb(128) ExpGolomb(5)
               BoldiVigna(2) Baer(0) Baer(-2) Baer(2)
               StartStepStop(3-3-99) StartStop(1-0-1-0-2-12-99)
+              Comma(2) Comma(3)
+              BlockTaboo(11) BlockTaboo(0000)
               ARice(2)
             |;
 

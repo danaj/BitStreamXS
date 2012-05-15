@@ -311,6 +311,12 @@ my @_initinfo = (
       params    => 1,
       encodesub => sub {shift->put_comma(@_)},
       decodesub => sub {shift->get_comma(@_)}, },
+    { package   => __PACKAGE__,
+      name      => 'BlockTaboo',
+      universal => 1,
+      params    => 1,
+      encodesub => sub {shift->put_blocktaboo(@_)},
+      decodesub => sub {shift->get_blocktaboo(@_)}, },
    );
 my %codeinfo;
 

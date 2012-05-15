@@ -12,6 +12,8 @@ my @encodings = qw|
               GammaGolomb(3) GammaGolomb(128) ExpGolomb(5)
               Baer(0) Baer(-2) Baer(2)
               Binword(32)
+              Comma(2) Comma(3)
+              BlockTaboo(00) BlockTaboo(111)
               ARice(2)
             |;
             # TODO:
@@ -30,8 +32,9 @@ for (1 .. $nloops)
   for (1 .. $nshorts) {
     $s->write(16, int(rand(65536)));
   }
-  # write 010 at end so no code will go off the end
-  $s->write(3, 2);
+  # write various terminators to force codes to end
+  $s->write(3, 2);  # 010 ends most codes
+  $s->put_string( '1' x (9*16*$nshorts+9) );  # Lots of 1s to end Rice/Golomb
   $s->write_close;
 
   foreach my $code (@encodings) {

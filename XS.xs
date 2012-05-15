@@ -33,6 +33,23 @@ static int is_positive_number(const char* str) {
   return 1;
 }
 
+static int parse_binary_string(const char* str, UV* val) {
+  UV v = 0;
+  int i;
+  int len = strlen(str);
+  if (len == 0)
+    return 0;
+  for (i = 0; i < len; i++) {
+    if      (str[i] == '0') { v = 2*v + 0; }
+    else if (str[i] == '1') { v = 2*v + 1; }
+    else                    { return 0; }
+  }
+  if (val != 0)
+    *val = v;
+  return len;
+}
+
+
 /* This is C99, and has to be wrapped in HAS_C99_VARIADIC_MACROS.
  * TODO: Find a non-variadic way to do the same thing.
  */
@@ -535,6 +552,33 @@ put_comma(IN Data::BitStream::XS list, IN int k, ...)
       return;
     }
     PUT_CODEP(comma, k);
+
+void
+get_blocktaboo(IN Data::BitStream::XS list, IN const char* taboostr, IN int count = 1)
+  PREINIT:
+    int k;
+    UV  taboo;
+  PPCODE:
+    k = parse_binary_string(taboostr, &taboo);
+    if ( (k < 1) || (k > 16) ) {
+      croak("invalid parameters: block taboo %s", taboostr);
+      XSRETURN_UNDEF;
+    }
+    GET_CODEPP(block_taboo, k, taboo);
+
+void
+put_blocktaboo(IN Data::BitStream::XS list, IN const char* taboostr, ...)
+  PREINIT:
+    int k;
+    UV  taboo;
+  CODE:
+    k = parse_binary_string(taboostr, &taboo);
+    if ( (k < 1) || (k > 16) ) {
+      croak("invalid parameters: block taboo %s", taboostr);
+      return;
+    }
+    /* We've turned one argument into two */
+    PUT_CODEVP(block_taboo, 1, list, k, taboo);
 
 void
 get_rice_sub(IN Data::BitStream::XS list, IN SV* coderef, IN int k, IN int count = 1)
