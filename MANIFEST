@@ -25,6 +25,7 @@ t/09-unary1.t
 t/10-delta.t
 t/11-omega.t
 t/12-fib.t
+t/12-fibgen.t
 t/13-lev.t
 t/14-arice.t
 t/15-rice.t
