@@ -11,6 +11,11 @@
 
 /********************  primes  ********************/
 
+/* primes 2,3,5,7,11,13,17,19,23,29,31 as bits */
+#define SMALL_PRIMES_MASK 2693408940
+/* if (MOD234_MASK >> (n%30)) & 1, n is a multiple of 2, 3, or 5. */
+#define MOD235_MASK       1601558397
+
 static int _is_prime7(WTYPE x)
 {
   WTYPE q, i;
@@ -37,23 +42,25 @@ static int _is_prime7(WTYPE x)
   return 1;
 }
 
-static WTYPE _next_prime(WTYPE x)
+WTYPE next_prime(WTYPE x)
 {
   WTYPE L, k0, n, M;
   WTYPE indices[] = {1, 7, 11, 13, 17, 19, 23, 29};
   int index;
-  if (x <= 29) {
-    if (x <=  2) return  2;
-    if (x <=  3) return  3;
-    if (x <=  5) return  5;
-    if (x <=  7) return  7;
-    if (x <= 11) return 11;
-    if (x <= 13) return 13;
-    if (x <= 17) return 17;
-    if (x <= 19) return 19;
-    if (x <= 23) return 23;
-    return 29;
+  if (x <= 30) {
+    if (x <  2) return  2;
+    if (x <  3) return  3;
+    if (x <  5) return  5;
+    if (x <  7) return  7;
+    if (x < 11) return 11;
+    if (x < 13) return 13;
+    if (x < 17) return 17;
+    if (x < 19) return 19;
+    if (x < 23) return 23;
+    if (x < 29) return 29;
+    return 31;
   }
+  x++;
   L = 30;
   k0 = x/L;
   index = 0;   while ((x-k0*L) > indices[index])  index++;
@@ -68,10 +75,13 @@ static WTYPE _next_prime(WTYPE x)
 
 int is_prime(WTYPE x)
 {
-  WTYPE q;
-  q = x/2;  if (q<2) return 1;  if (x==(q*2)) return 0;
-  q = x/3;  if (q<3) return 1;  if (x==(q*3)) return 0;
-  q = x/5;  if (q<5) return 1;  if (x==(q*5)) return 0;
+  if (x <= 31)
+    return ((SMALL_PRIMES_MASK >> x) & 1);
+
+  WTYPE q, i;
+  if ( (MOD235_MASK >> (x%30)) & 1 )
+    return 0;
+
   return _is_prime7(x);
 }
 
@@ -84,8 +94,6 @@ int expand_primearray_index(PrimeArray* p, int index)
   if (index < 8)  index = 8;
   if (p->curlen > index)
     return 1;
-  if (index >= 100000) printf("someone just asked for index %d\n", index);
-  assert(index < 100000);
   if (p->array == 0) {
     p->array = (WTYPE*) malloc((index+1) * sizeof(WTYPE));
     p->curlen = 0;
@@ -111,7 +119,7 @@ int expand_primearray_index(PrimeArray* p, int index)
   }
   curprime = p->array[p->curlen-1];
   for (i = p->curlen; i <= index; i++) {
-    curprime = _next_prime(curprime+2);
+    curprime = next_prime(curprime);
     p->array[i] = curprime;
   }
   p->curlen = index;

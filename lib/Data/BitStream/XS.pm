@@ -13,7 +13,7 @@ BEGIN {
 # parent is cleaner, and in the Perl 5.10.1 / 5.12.0 core, but not earlier.
 # use parent qw( Exporter );
 use base qw( Exporter );
-our @EXPORT_OK = qw( code_is_supported code_is_universal );
+our @EXPORT_OK = qw( code_is_supported code_is_universal is_prime next_prime );
 
 BEGIN {
   eval {
@@ -311,6 +311,12 @@ my @_initinfo = (
       params    => 1,
       encodesub => sub {shift->put_comma(@_)},
       decodesub => sub {shift->get_comma(@_)}, },
+    { package   => __PACKAGE__,
+      name      => 'GoldbachG1',
+      universal => 1,
+      params    => 0,
+      encodesub => sub {shift->put_goldbach_g1(@_)},
+      decodesub => sub {shift->get_goldbach_g1(@_)}, },
     { package   => __PACKAGE__,
       name      => 'BlockTaboo',
       universal => 1,

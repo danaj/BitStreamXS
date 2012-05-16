@@ -163,6 +163,12 @@ void
 DESTROY(IN Data::BitStream::XS list)
 
 int
+is_prime(IN UV n)
+
+UV
+next_prime(IN UV n)
+
+int
 maxbits(IN Data::BitStream::XS list = 0)
   CODE:
     RETVAL = BITS_PER_WORD;
