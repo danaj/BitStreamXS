@@ -1330,7 +1330,97 @@ void put_goldbach_g1 (BitList *list, WTYPE value)
     prime_basis.array[0] = 1;
   }
 
-  if (!find_best_pair(prime_basis.array, prime_basis.curlen, value, &i, &j)) {
+  if (!find_best_pair(prime_basis.array,prime_basis.curlen, value, 0, &i, &j)) {
+    croak("value out of range");
+    return;
+  }
+  put_gamma(list, (WTYPE)i);
+  put_gamma(list, (WTYPE)j);
+}
+
+WTYPE get_goldbach_g2 (BitList *list)
+{
+  int i, j, maxindex;
+  int pos = list->pos;
+  WTYPE look, value;
+  WTYPE subtract = W_ONE;
+  assert( pos < list->len );
+
+  if ( (list->pos + 3) > list->len ) {
+    croak("read off end of stream");
+    return W_ZERO;
+  }
+  look = sreadahead(list, 3);
+  if (look == W_CONST(6)) {  (void) sread(list, 3); return W_ZERO;  }
+  if (look == W_CONST(7)) {  (void) sread(list, 3); return W_ONE;   }
+
+  if (look >= W_CONST(4)) {
+    subtract = W_ZERO;
+    (void) sread(list, 1);
+  }
+
+  i = get_gamma(list);
+  j = get_gamma(list);
+
+  maxindex = (j == 0) ?  i  :  j+(i-1)-1;
+  if (prime_basis.curlen <= maxindex) {
+    if (expand_primearray_index(&prime_basis, maxindex) == 0) {
+      list->pos = pos;  /* restore position */
+      croak("code error: Goldbach G2 overflow");
+      return W_ZERO;
+    }
+    prime_basis.array[0] = 1;
+  }
+
+  if (j == 0) {
+    value = prime_basis.array[i] - subtract;
+  } else {
+    i = i - 1;
+    j = j + i - 1;
+    value = prime_basis.array[i] + prime_basis.array[j] - subtract;
+  }
+  return value;
+}
+
+void put_goldbach_g2 (BitList *list, WTYPE value)
+{
+  int i, j;
+
+  if (value == W_ZERO) { swrite(list, 3, W_CONST(6)); return; }
+  if (value == W_ONE ) { swrite(list, 3, W_CONST(7)); return; }
+
+  /* TODO: encode ~0 */
+  if (value == W_FFFF) {
+    croak("code error: Goldbach G2 overflow");
+    return;
+  }
+  value++;
+  if ((prime_basis.curlen == 0) || (prime_basis.array[prime_basis.curlen-1] < value)) {
+    if (expand_primearray_value(&prime_basis, value) == 0) {
+      croak("code error: Goldbach G2 overflow");
+      return;
+    }
+    prime_basis.array[0] = 1;
+  }
+
+  if ( (value != 2) && is_prime(value) ) {
+    /* find the index for value */
+    int spindex = 0;
+    const WTYPE* parray = prime_basis.array;
+    while (value > parray[spindex]) spindex++;
+    assert(parray[spindex] == value);
+    /* printf("g2 prime: storing %d followed by 1\n", spindex); */
+    put_gamma(list, (WTYPE)spindex);
+    swrite(list, 1, W_ONE);
+    return;
+  }
+  
+  if ((value % 2) == 1) {
+    swrite(list, 1, W_ONE);
+    value--;
+  }
+
+  if (!find_best_pair(prime_basis.array,prime_basis.curlen, value, 1, &i, &j)) {
     croak("value out of range");
     return;
   }
