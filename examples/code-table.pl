@@ -16,6 +16,9 @@ sub string_of {
   elsif ($encoding eq 'fib')    { $stream->put_fib($d);      }
   elsif ($encoding eq 'fibc2')  { $stream->put_fib_c2($d);   }
   elsif ($encoding eq 'lev')    { $stream->put_levenstein($d);     }
+  elsif ($encoding eq 'g1')     { $stream->put_goldbach_g1($d);     }
+  elsif ($encoding eq 'g2')     { $stream->put_goldbach_g2($d);     }
+  elsif ($encoding =~ /btaboo/) { $stream->put_blocktaboo($p, $d); }
   elsif ($encoding =~ /bvzeta/) { $stream->put_boldivigna($p, $d); }
   elsif ($encoding =~ /baer/)   { $stream->put_baer($p, $d); }
   elsif ($encoding =~ /escape/) { $stream->put_escape([split('-',$p)],$d); }
