@@ -240,6 +240,18 @@ my @_initinfo = (
       encodesub => sub {shift->put_levenstein(@_)},
       decodesub => sub {shift->get_levenstein(@_)}, },
     { package   => __PACKAGE__,
+      name      => 'GoldbachG1',
+      universal => 1,
+      params    => 0,
+      encodesub => sub {shift->put_goldbach_g1(@_)},
+      decodesub => sub {shift->get_goldbach_g1(@_)}, },
+    { package   => __PACKAGE__,
+      name      => 'GoldbachG2',
+      universal => 1,
+      params    => 0,
+      encodesub => sub {shift->put_goldbach_g2(@_)},
+      decodesub => sub {shift->get_goldbach_g2(@_)}, },
+    { package   => __PACKAGE__,
       name      => 'Fibonacci',
       universal => 1,
       params    => 0,
@@ -251,6 +263,18 @@ my @_initinfo = (
       params    => 1,
       encodesub => sub {shift->put_fibgen(@_)},
       decodesub => sub {shift->get_fibgen(@_)}, },
+    { package   => __PACKAGE__,
+      name      => 'Comma',
+      universal => 1,
+      params    => 1,
+      encodesub => sub {shift->put_comma(@_)},
+      decodesub => sub {shift->get_comma(@_)}, },
+    { package   => __PACKAGE__,
+      name      => 'BlockTaboo',
+      universal => 1,
+      params    => 1,
+      encodesub => sub {shift->put_blocktaboo(@_)},
+      decodesub => sub {shift->get_blocktaboo(@_)}, },
     { package   => __PACKAGE__,
       name      => 'Golomb',
       universal => 0,
@@ -276,12 +300,6 @@ my @_initinfo = (
       encodesub => sub {shift->put_gammagolomb(@_)},
       decodesub => sub {shift->get_gammagolomb(@_)}, },
     { package   => __PACKAGE__,
-      name      => 'ARice',
-      universal => 1,
-      params    => 1,
-      encodesub => sub {shift->put_arice(@_)},
-      decodesub => sub {shift->get_arice(@_)}, },
-    { package   => __PACKAGE__,
       name      => 'Baer',
       universal => 1,
       params    => 1,
@@ -294,6 +312,12 @@ my @_initinfo = (
       encodesub => sub {shift->put_boldivigna(@_)},
       decodesub => sub {shift->get_boldivigna(@_)}, },
     { package   => __PACKAGE__,
+      name      => 'ARice',
+      universal => 1,
+      params    => 1,
+      encodesub => sub {shift->put_arice(@_)},
+      decodesub => sub {shift->get_arice(@_)}, },
+    { package   => __PACKAGE__,
       name      => 'StartStop',
       universal => 1,
       params    => 1,
@@ -305,24 +329,6 @@ my @_initinfo = (
       params    => 1,
       encodesub => sub {shift->put_startstepstop([split('-',shift)], @_)},
       decodesub => sub {shift->get_startstepstop([split('-',shift)], @_)}, },
-    { package   => __PACKAGE__,
-      name      => 'Comma',
-      universal => 1,
-      params    => 1,
-      encodesub => sub {shift->put_comma(@_)},
-      decodesub => sub {shift->get_comma(@_)}, },
-    { package   => __PACKAGE__,
-      name      => 'GoldbachG1',
-      universal => 1,
-      params    => 0,
-      encodesub => sub {shift->put_goldbach_g1(@_)},
-      decodesub => sub {shift->get_goldbach_g1(@_)}, },
-    { package   => __PACKAGE__,
-      name      => 'BlockTaboo',
-      universal => 1,
-      params    => 1,
-      encodesub => sub {shift->put_blocktaboo(@_)},
-      decodesub => sub {shift->get_blocktaboo(@_)}, },
    );
 my %codeinfo;
 
@@ -811,6 +817,18 @@ Reads/writes one or more values from the stream in Levenstein coding
 
 Reads/writes one or more values from the stream in Even-Rodeh coding.
 
+=item B< get_goldbach_g1([$count]) >
+
+=item B< put_goldbach_g1(@values) >
+
+Reads/writes one or more values from the stream in Goldbach G1 coding.
+
+=item B< get_goldbach_g2([$count]) >
+
+=item B< put_goldbach_g2(@values) >
+
+Reads/writes one or more values from the stream in Goldbach G2 coding.
+
 =item B< get_fib([$count]) >
 
 =item B< put_fib(@values) >
@@ -826,6 +844,25 @@ Reads/writes one or more values from the stream in generalized Fibonacci
 coding.  The order C<m> should be between 2 and 16.  These codes are
 described in Klein and Ben-Nissan (2004).  For C<m=2> the results are
 identical to the standard C1 form.
+
+=item B< get_comma($bits [, $count]) >
+
+=item B< put_comma($bits, @values) >
+
+Reads/writes one or more values from the stream in Comma coding.  The number
+of bits C<bits> should be between 1 and 16.  C<bits=1> implies Unary coding.
+C<bits=2> is the ternary comma code.  No leading zeros are used.
+
+=item B< get_blocktaboo($taboo [, $count]) >
+
+=item B< put_blocktaboo($taboo, @values) >
+
+Reads/writes one or more values from the stream in block-based Taboo coding.
+The parameter C<taboo> is the binary string of the taboo code to use, such
+as C<'00'>.  C<taboo='1'> implies Unary coding.  C<taboo='0'> implies Unary1
+coding.  No more than 16 bits of taboo code may be given.
+These codes are a more efficient version of comma codes, as they allow
+leading zeros.
 
 =item B< get_golomb($m [, $count]) >
 
@@ -877,6 +914,41 @@ Elias Gamma codes for the base.  This is a convenience since they are common.
 
 Reads/writes one or more values from the stream in Rice coding using
 Elias Gamma codes for the base.  This is a convenience since they are common.
+
+=item B< get_baer($k [, $count]) >
+
+=item B< put_baer($k, @values) >
+
+Reads/writes one or more values from the stream in Baer c_k coding.  The
+parameter C<k> must be between C<-32> and C<32>.
+
+=item B< get_boldivigna($k [, $count]) >
+
+=item B< put_boldivigna($k, @values) >
+
+Reads/writes one or more values from the stream in the Zeta coding of
+Paolo Boldi and Sebastiano Vigna.  The parameter C<k> must be between C<1>
+and C<maxbits> (C<32> or C<64>).  Typical values for C<k> are between C<2>
+and C<6>.
+
+=item B< get_arice($k [, $count]) >
+
+=item B< put_arice($k, @values) >
+
+Reads/writes one or more values from the stream in Adaptive Rice coding.
+Technically this is ExpGolomb coding since the default method for encoding
+the base is using the Elias Gamma code.
+The value of $k will adapt to better fit the values.  This interface will
+likely change to make C<$k> a reference.
+
+=item B< get_arice(sub { ... }, $k [, $count]) >
+
+=item B< put_arice(sub { ... }, $k, @values) >
+
+Reads/writes one or more values from the stream in Adaptive Rice coding using
+the supplied subroutine instead of Elias Gamma coding to encode the base.
+The value of $k will adapt to better fit the values.  This interface will
+likely change to make C<$k> a reference.
 
 =item B< get_startstop(\@m [, $count]) >
 
@@ -938,6 +1010,8 @@ etc.
 
 =item L<Data::BitStream::Code::EvenRodeh>
 
+=item L<Data::BitStream::Code::Additive>
+
 =item L<Data::BitStream::Code::Fibonacci>
 
 =item L<Data::BitStream::Code::Golomb>
@@ -953,6 +1027,10 @@ etc.
 =item L<Data::BitStream::Code::Baer>
 
 =item L<Data::BitStream::Code::BoldiVigna>
+
+=item L<Data::BitStream::Code::Comma>
+
+=item L<Data::BitStream::Code::Taboo>
 
 =item L<Data::BitStream::Code::ARice>
 

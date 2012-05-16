@@ -37,6 +37,9 @@ t/20-startstep.t
 t/21-putstream.t
 t/22-text.t
 t/23-maxbits.t
+t/24-comma.t
+t/25-taboo.t
+t/26-goldbach.t
 t/50-stream1.t
 t/60-coding-01.t
 t/60-coding-02.t
@@ -54,6 +57,7 @@ t/63-range.t
 t/70-failures.t
 t/71-bad_gets.t
 t/72-rand-bad-gets.t
+t/90-sequence-primes.t
 examples/bench-codes.pl
 examples/code-table.pl
 examples/imcomp.pl

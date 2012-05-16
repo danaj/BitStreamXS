@@ -8,6 +8,14 @@ Revision history for Perl extension Data::BitStream::XS.
     systems (generally 64-bit Perl on 64-bit O/S).
   - Use Inline C when possible for image compression example.
   - Add put_raw implementation.
+  - Unified internal stack code.  A little faster.
+  - Add Generalized Fibonacci, Goldbach G1/G2, Comma, and Block Taboo codes.
+  - is_prime and next_prime are available for export if you want them for some
+    reason.  They're quite fast, though other packages have some advantages
+    (e.g. Math::Primality is very slow for small numbers but can work with
+    GMP arbitrary size numbers, Math::Prime::XS is faster for generating a
+    range of primes, and Math::Prime::FastSieve should be better if you're
+    doing many operations over a finite range and have some memory).
 
 0.03    23 Nov 2011
   - Tracked down the LLP64 (32-bit long, 64-bit long long) issue down to using
