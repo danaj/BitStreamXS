@@ -8,13 +8,23 @@
 
 #include "sequences.h"
 
-
 /********************  primes  ********************/
 
+/*
+ * This implementation:
+ *   - stores primes in a realloced array
+ *   - generates more by repeated next_prime calls
+ *
+ * Using the same prime storage and find-pair operations, we could speed
+ * things up some by using a sieve when we need to generate a reasonably
+ * large range.  This would require a bit of working memory (1 bit for each
+ * odd number in the range).
+ */
+
 /* primes 2,3,5,7,11,13,17,19,23,29,31 as bits */
-#define SMALL_PRIMES_MASK 2693408940
+#define SMALL_PRIMES_MASK W_CONST(2693408940)
 /* if (MOD234_MASK >> (n%30)) & 1, n is a multiple of 2, 3, or 5. */
-#define MOD235_MASK       1601558397
+#define MOD235_MASK       W_CONST(1601558397)
 
 static int _is_prime7(WTYPE x)
 {
@@ -45,9 +55,10 @@ static int _is_prime7(WTYPE x)
 WTYPE next_prime(WTYPE x)
 {
   WTYPE L, k0, n, M;
-  WTYPE indices[] = {1, 7, 11, 13, 17, 19, 23, 29};
+  static const WTYPE indices[] = {1, 7, 11, 13, 17, 19, 23, 29};
   int index;
   if (x <= 30) {
+    /* Alternate impl: a lookup or case statement */
     if (x <  2) return  2;
     if (x <  3) return  3;
     if (x <  5) return  5;
@@ -99,9 +110,9 @@ int expand_primearray_index(PrimeArray* p, int index)
     p->curlen = 0;
     p->maxlen = index+1;
   }
-  if (p->maxlen < index) {
-    p->array = (WTYPE*) realloc(p->array, (index+1) * sizeof(WTYPE));
-    p->maxlen = index+1;
+  if (p->maxlen <= index) {
+    p->maxlen = index+1024;
+    p->array = (WTYPE*) realloc(p->array, p->maxlen * sizeof(WTYPE));
   }
   if (p->array == 0) {
     p->maxlen = 0;
@@ -129,18 +140,26 @@ int expand_primearray_index(PrimeArray* p, int index)
 int expand_primearray_value(PrimeArray* p, WTYPE value)
 {
   int res;
-
-  assert(p != 0);
+  WTYPE curprime;
 
   if ( (p->array == 0) || (p->curlen == 0) ) {
     res = expand_primearray_index(p, 8);
     if (res == 0)  return 0;
   }
   /* Should use an inequality to be smarter */
-  while (p->array[p->curlen-1] < value) {
-    int newlen = p->curlen + 500;
-    res = expand_primearray_index(p, newlen);
-    if (res == 0)  return 0;
+
+  curprime = p->array[p->curlen-1];
+  while (curprime < value) {
+    if (p->curlen >= p->maxlen) {
+      p->maxlen += 1024;
+      p->array = (WTYPE*) realloc(p->array, p->maxlen * sizeof(WTYPE));
+      if (p->array == 0) {
+        p->maxlen = 0;
+        return 0;
+      }
+    }
+    curprime = next_prime(curprime);
+    p->array[p->curlen++] = curprime;
   }
   assert(p->array[p->curlen-1] >= value);
   return 1;
@@ -151,14 +170,13 @@ int expand_primearray_value(PrimeArray* p, WTYPE value)
 
 static int gamma_length(WTYPE n)
 {
-  int gammalen = 1;
-  while (n > ((2 << (gammalen>>1))-1))
-    gammalen += 2;
-  return gammalen;
+  int log2 = 0;
+  while (n >= ((2 << log2)-1))  log2++;
+  return ((2*log2)+1);
 }
 
-/* TODO: pass in a function to pick the best i,j */
-int find_best_pair(WTYPE* basis, int basislen, WTYPE val, int* a, int* b)
+/* adder is used to modify the stored indices.  A function would be better. */
+int find_best_pair(WTYPE* basis, int basislen, WTYPE val, int adder, int* a, int* b)
 {
   int maxbasis = 0;
   int bestlen = INT_MAX;
@@ -174,20 +192,20 @@ int find_best_pair(WTYPE* basis, int basislen, WTYPE val, int* a, int* b)
   i = 0;
   j = maxbasis;
   while (i <= j) {
-    WTYPE pi = basis[i];
-    WTYPE pj = basis[j];
-    WTYPE sum = pi + pj;
-    if      (sum < val) { i++; }
-    else if (sum > val) { j--; }
-    else {
-      int p1 = i;
-      int p2 = j-i;
-      int glen = gamma_length(p1) + gamma_length(p2);
-      /* printf("found pair %d,%d with length %d\n", i, j, glen); */
-      if (glen < bestlen) {
-        *a = p1;
-        *b = p2;
-        bestlen = glen;
+    WTYPE sum = basis[i] + basis[j];
+    if (sum > val) {
+      j--;
+    } else {
+      if (sum == val) {
+        int p1 = i + adder;
+        int p2 = j - i + adder;
+        int glen = gamma_length(p1) + gamma_length(p2);
+        /* printf("found %llu+%llu=%llu  pair %d,%d (%d,%d) with length %d\n", basis[i], basis[j], sum, i, j, p1, p2, glen); */
+        if (glen < bestlen) {
+          *a = p1;
+          *b = p2;
+          bestlen = glen;
+        }
       }
       i++;
     }

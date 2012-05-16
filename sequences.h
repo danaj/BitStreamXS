@@ -23,4 +23,4 @@ extern int   is_prime(WTYPE x);
 extern WTYPE next_prime(WTYPE x);
 extern int   expand_primearray_index(PrimeArray* p, int index);
 extern int   expand_primearray_value(PrimeArray* p, WTYPE value);
-extern int find_best_pair(WTYPE* basis, int basislen, WTYPE val, int* a, int* b);
+extern int find_best_pair(WTYPE* basis, int basislen, WTYPE val, int adder, int* a, int* b);
