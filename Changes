@@ -1,6 +1,6 @@
 Revision history for Perl extension Data::BitStream::XS.
 
-0.04    -- --- ----
+0.04    17 May 2012
   - get sub was using POPul -- should use either POPu or POPul/POPuq.  Changed
     to POPu and added a simple test.  Data::BitStream has more extensive tests
     that found this when testing the 'xs' implementation (this module) on LLP64
