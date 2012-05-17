@@ -1,5 +1,9 @@
 Revision history for Perl extension Data::BitStream::XS.
 
+0.05    17 May 2012
+  - include guard for .h files
+  - infrastructure updates (pod/perlcritic/kwalitee tests, Makefile.PL, LICENSE)
+
 0.04    17 May 2012
   - get sub was using POPul -- should use either POPu or POPul/POPuq.  Changed
     to POPu and added a simple test.  Data::BitStream has more extensive tests
