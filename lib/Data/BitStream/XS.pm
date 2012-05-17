@@ -7,7 +7,7 @@ BEGIN {
   $Data::BitStream::XS::AUTHORITY = 'cpan:DANAJ';
 }
 BEGIN {
-  $Data::BitStream::XS::VERSION = '0.05';
+  $Data::BitStream::XS::VERSION = '0.06';
 }
 
 # parent is cleaner, and in the Perl 5.10.1 / 5.12.0 core, but not earlier.

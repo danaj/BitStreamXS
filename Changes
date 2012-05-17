@@ -1,5 +1,7 @@
 Revision history for Perl extension Data::BitStream::XS.
 
+0.06    ?? May 2012
+
 0.05    17 May 2012
   - include guard for .h files
   - infrastructure updates (pod/perlcritic/kwalitee tests, Makefile.PL, LICENSE)
