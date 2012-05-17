@@ -1,5 +1,6 @@
 Changes
 Makefile.PL
+LICENSE
 MANIFEST
 README
 TODO
@@ -58,7 +59,10 @@ t/63-range.t
 t/70-failures.t
 t/71-bad_gets.t
 t/72-rand-bad-gets.t
-t/90-sequence-primes.t
+t/80-sequence-primes.t
+t/90-release-perlcritic.t
+t/91-release-pod-syntax.t
+t/92-release-pod-coverage.t
 examples/bench-codes.pl
 examples/code-table.pl
 examples/imcomp.pl
