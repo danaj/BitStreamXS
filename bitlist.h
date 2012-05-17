@@ -1,3 +1,6 @@
+#ifndef DBXS_BITLIST_H
+#define DBXS_BITLIST_H
+
 
 /*
  * Note: we have to be careful with our function names.  On HP/UX, for example,
@@ -114,3 +117,5 @@ extern void      put_adaptive_gamma_rice_sub (BitList *l, SV* self, SV* code, in
 extern void      put_startstop  (BitList *l, const char* cmap, WTYPE value);
 
 extern char*     make_startstop_prefix_map(SV* paramref);
+
+#endif

@@ -1,3 +1,5 @@
+#ifndef DBXS_WTYPE_H
+#define DBXS_WTYPE_H
 
 /*
  * The data type to use.
@@ -54,3 +56,5 @@
 #define W_ZERO      W_CONST(0)
 #define W_ONE       W_CONST(1)
 #define W_FFFF      W_CONST(~0)
+
+#endif
