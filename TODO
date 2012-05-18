@@ -38,3 +38,8 @@
   code is invalid (e.g. a base higher than 32/64).
   More work needs to be done, both in testing (e.g. Evenrodeh) and in making
   sure the position is correct after a short read (e.g. Rice, Golomb).
+
+- Remove 64-bit numbers from 80-primes.t (or tie to maxbits).
+- Add primes() call to 80-primes.t
+- Change primes() to sieve if a reasonable range is asked for.
+- Should primes() return an array, a ref, or either depending on GIMME?

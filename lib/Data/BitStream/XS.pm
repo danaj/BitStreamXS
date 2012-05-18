@@ -13,7 +13,10 @@ BEGIN {
 # parent is cleaner, and in the Perl 5.10.1 / 5.12.0 core, but not earlier.
 # use parent qw( Exporter );
 use base qw( Exporter );
-our @EXPORT_OK = qw( code_is_supported code_is_universal is_prime next_prime );
+our @EXPORT_OK = qw(
+                     code_is_supported code_is_universal
+                     is_prime next_prime primes
+                   );
 
 BEGIN {
   eval {
