@@ -54,7 +54,8 @@ static int _is_prime7(WTYPE x)
 
 WTYPE next_prime(WTYPE x)
 {
-  WTYPE L, k0, n, M;
+  static const WTYPE L = 30;
+  WTYPE k0, n, M;
   static const WTYPE indices[] = {1, 7, 11, 13, 17, 19, 23, 29};
   int index;
   if (x <= 30) {
@@ -72,7 +73,6 @@ WTYPE next_prime(WTYPE x)
     return 31;
   }
   x++;
-  L = 30;
   k0 = x/L;
   index = 0;   while ((x-k0*L) > indices[index])  index++;
   n = L*k0 + indices[index];
