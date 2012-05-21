@@ -115,8 +115,10 @@ int expand_primearray_index(PrimeArray* p, int index)
     p->array = (WTYPE*) realloc(p->array, p->maxlen * sizeof(WTYPE));
   }
   if (p->array == 0) {
+    int e = p->maxlen;
     p->maxlen = 0;
     p->curlen = 0;
+    croak("allocation failure in primearray: could not alloc %d entries", e);
     return 0;
   }
   assert(p->maxlen > index);
@@ -154,7 +156,10 @@ int expand_primearray_value(PrimeArray* p, WTYPE value)
       p->maxlen += 1024;
       p->array = (WTYPE*) realloc(p->array, p->maxlen * sizeof(WTYPE));
       if (p->array == 0) {
+        int e = p->maxlen;
         p->maxlen = 0;
+        p->curlen = 0;
+        croak("allocation failure in primearray: could not alloc %d entries", e);
         return 0;
       }
     }

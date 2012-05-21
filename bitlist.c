@@ -272,8 +272,11 @@ void read_open(BitList *list)
       int maxbytes = 1024 * list->file_header_lines;
       int nbytes = 0;
       char* hbuf = (char*) malloc(maxbytes);
-      assert(hbuf != 0);
       char* hptr = hbuf;
+      if (hbuf == 0) {
+        croak("allocation failure in read_open: could not alloc %d bytes", maxbytes);
+        return;
+      }
       for (hline = 0; hline < list->file_header_lines; hline++) {
         char* fresult;
         int len;
@@ -293,6 +296,10 @@ void read_open(BitList *list)
         nbytes += len;
       }
       hbuf = (char*) realloc(hbuf, nbytes+1);
+      if (hbuf == 0) {
+        croak("allocation failure in read_open: could not realloc %d bytes", nbytes+1);
+        return;
+      }
       if (list->file_header != 0)
         free( (void*) list->file_header );
       list->file_header = hbuf;
@@ -309,6 +316,11 @@ void read_open(BitList *list)
     {
       size_t total_bytes = 0;
       char* buf = (char*) malloc(16384 * sizeof(char));
+      if (buf == 0) {
+        croak("allocation failure in read_open: could not alloc %d bytes", 16384);
+        return;
+      }
+      assert(buf != 0);
       while (!feof(fh)) {
         char* bptr = buf;
         size_t bytes = fread(buf, sizeof(char), 16384, fh);
@@ -543,7 +555,7 @@ char* read_string(BitList *list, int bits)
   assert (bits <= (list->len - list->pos));
   buf = (char*) malloc(bits+1);
   if (buf == 0) {
-    croak("allocation failure: could not alloc %d bits", bits+1);
+    croak("allocation failure in read_string: could not alloc %d bits", bits+1);
     return 0;
   }
 #if 0
@@ -1967,7 +1979,7 @@ char* make_startstop_prefix_map(SV* paramref)
 
   map = (startstop_map_entry*) malloc(nparams * sizeof(startstop_map_entry));
   if (map == 0) {
-    croak("allocation failure");
+    croak("allocation failure in startstop");
     return 0;
   }
 
