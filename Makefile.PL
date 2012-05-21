@@ -12,12 +12,16 @@ WriteMakefile1(
     INC          => '',     # e.g., '-I/usr/include/other'
     OBJECT       => 'bitlist.o sequences.o XS.o',
 
-    MIN_PERL_VERSION => 5.6.2,
+    PREREQ_PM    => {
+                      'Test::More'       => '0.45',
+                      'Exporter'         => '5.562',
+                      'XSLoader'         => '0.01',
+                    },
+    META_MERGE   => {
+                      recommends => { 'Data::BitStream' => 0, },
+                    },
 
-    PREREQ_PM => {
-                    'Test::More'       => '0.45',
-                    'Exporter'         => '5.562',
-                 },
+    MIN_PERL_VERSION => 5.006002,
 );
 
 sub WriteMakefile1 {
