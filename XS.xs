@@ -374,12 +374,12 @@ void
 from_raw(IN Data::BitStream::XS list, IN const char* str, IN int bits)
 
 void
-xput_stream(IN Data::BitStream::XS list, IN Data::BitStream::XS source)
+_xput_stream(IN Data::BitStream::XS list, IN Data::BitStream::XS source)
   CODE:
     if (!list->is_writing) {
       croak("write while reading");
     } else {
-      xput_stream(list, source);
+      _xput_stream(list, source);
     }
 
 
@@ -601,7 +601,7 @@ put_blocktaboo(IN Data::BitStream::XS list, IN const char* taboostr, ...)
     PUT_CODEVP(block_taboo, 1, list, k, taboo);
 
 void
-get_rice_sub(IN Data::BitStream::XS list, IN SV* coderef, IN int k, IN int count = 1)
+_xget_rice_sub(IN Data::BitStream::XS list, IN SV* coderef, IN int k, IN int count = 1)
   PREINIT:
     SV* self = ST(0);
     SV* cref = 0;
@@ -623,7 +623,7 @@ get_rice_sub(IN Data::BitStream::XS list, IN SV* coderef, IN int k, IN int count
     GET_CODESPP(rice_sub, self, cref, k);
 
 void
-put_rice_sub(IN Data::BitStream::XS list, IN SV* coderef, IN int k, ...)
+_xput_rice_sub(IN Data::BitStream::XS list, IN SV* coderef, IN int k, ...)
   PREINIT:
     SV* self = ST(0);
     SV* cref = 0;
@@ -667,7 +667,7 @@ put_gamma_rice(IN Data::BitStream::XS list, IN int k, ...)
     PUT_CODEP(gamma_rice, k);
 
 void
-get_golomb_sub(IN Data::BitStream::XS list, IN SV* coderef, IN UV m, IN int count = 1)
+_xget_golomb_sub(IN Data::BitStream::XS list, IN SV* coderef, IN UV m, IN int count = 1)
   PREINIT:
     SV* self = ST(0);
     SV* cref = 0;
@@ -689,7 +689,7 @@ get_golomb_sub(IN Data::BitStream::XS list, IN SV* coderef, IN UV m, IN int coun
     GET_CODESPP(golomb_sub, self, cref, m);
 
 void
-put_golomb_sub(IN Data::BitStream::XS list, IN SV* coderef, IN UV m, ...)
+_xput_golomb_sub(IN Data::BitStream::XS list, IN SV* coderef, IN UV m, ...)
   PREINIT:
     SV* self = ST(0);
     SV* cref = 0;
@@ -734,7 +734,7 @@ put_gamma_golomb(IN Data::BitStream::XS list, IN UV m, ...)
     PUT_CODEP(gamma_golomb, m);
 
 void
-get_arice_sub(list, coderef, k, count=1)
+_xget_arice_sub(list, coderef, k, count=1)
       Data::BitStream::XS list
       SV* coderef
       int &k
@@ -745,7 +745,7 @@ get_arice_sub(list, coderef, k, count=1)
     SV* stack_k_ptr = ST(2);  /* Remember position of k, it will be modified */
   PPCODE:
     if ( (k < 0) || (k > BITS_PER_WORD) ) {
-      croak("invalid parameters: adaptive_gamma_rice %d", k);
+      croak("invalid parameters: adaptive_rice %d", k);
       XSRETURN_UNDEF;
     }
     if (!SvROK(coderef)) {
@@ -753,18 +753,18 @@ get_arice_sub(list, coderef, k, count=1)
       cref = 0;
     } else {
       if ((!SvROK(coderef)) || (SvTYPE(SvRV(coderef)) != SVt_PVCV) ) {
-        croak("invalid parameters: adaptive_gamma_rice coderef");
+        croak("invalid parameters: adaptive_rice coderef");
         return;
       }
       cref = SvRV(coderef);
     }
-    GET_CODESPP(adaptive_gamma_rice_sub, self, cref, &k);
+    GET_CODESPP(adaptive_rice_sub, self, cref, &k);
     /* Return the modified k back to Perl */
     sv_setiv(stack_k_ptr, k);
     SvSETMAGIC(stack_k_ptr);
 
 void
-put_arice_sub(list, coderef, k, ...)
+_xput_arice_sub(list, coderef, k, ...)
       Data::BitStream::XS list
       SV* coderef
       int &k
@@ -773,7 +773,7 @@ put_arice_sub(list, coderef, k, ...)
     SV* cref = 0;
   CODE:
     if ( (k < 0) || (k > BITS_PER_WORD) ) {
-      croak("invalid parameters: adaptive_gamma_rice %d", k);
+      croak("invalid parameters: adaptive_rice %d", k);
       return;
     }
     if (!SvROK(coderef)) {
@@ -781,12 +781,12 @@ put_arice_sub(list, coderef, k, ...)
       cref = 0;
     } else {
       if ((!SvROK(coderef)) || (SvTYPE(SvRV(coderef)) != SVt_PVCV) ) {
-        croak("invalid parameters: adaptive_gamma_rice coderef");
+        croak("invalid parameters: adaptive_rice coderef");
         return;
       }
       cref = SvRV(coderef);
     }
-    PUT_CODESPP(adaptive_gamma_rice_sub, self, cref, &k);
+    PUT_CODESPP(adaptive_rice_sub, self, cref, &k);
   OUTPUT:
     k
 

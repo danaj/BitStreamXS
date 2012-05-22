@@ -76,7 +76,7 @@ sub put_stream {
 
   if (ref $source eq __PACKAGE__) {
     # optimized method for us.
-    $self->xput_stream($source);
+    $self->_xput_stream($source);
   } else {
     return 0 unless $source->can('to_string');
     $self->put_string($source->to_string);
@@ -95,44 +95,41 @@ sub put_stream {
 sub get_golomb {
   my $self = shift;
   return    (ref $_[0] eq 'CODE')
-         ?  $self->get_golomb_sub(@_)
-         :  $self->get_golomb_sub(undef, @_);
+         ?  $self->_xget_golomb_sub(@_)
+         :  $self->_xget_golomb_sub(undef, @_);
 }
 sub put_golomb {
   my $self = shift;
   return    (ref $_[0] eq 'CODE')
-         ?  $self->put_golomb_sub(@_)
-         :  $self->put_golomb_sub(undef, @_);
+         ?  $self->_xput_golomb_sub(@_)
+         :  $self->_xput_golomb_sub(undef, @_);
 }
 
 sub get_rice {
   my $self = shift;
   return    (ref $_[0] eq 'CODE')
-         ?  $self->get_rice_sub(@_)
-         :  $self->get_rice_sub(undef, @_);
+         ?  $self->_xget_rice_sub(@_)
+         :  $self->_xget_rice_sub(undef, @_);
 }
 sub put_rice {
   my $self = shift;
   return    (ref $_[0] eq 'CODE')
-         ?  $self->put_rice_sub(@_)
-         :  $self->put_rice_sub(undef, @_);
+         ?  $self->_xput_rice_sub(@_)
+         :  $self->_xput_rice_sub(undef, @_);
 }
 
 sub get_arice {
   my $self = shift;
   return    (ref $_[0] eq 'CODE')
-         ?  $self->get_arice_sub(@_)
-         :  $self->get_arice_sub(undef, @_);
+         ?  $self->_xget_arice_sub(@_)
+         :  $self->_xget_arice_sub(undef, @_);
 }
 sub put_arice {
   my $self = shift;
   return    (ref $_[0] eq 'CODE')
-         ?  $self->put_arice_sub(@_)
-         :  $self->put_arice_sub(undef, @_);
+         ?  $self->_xput_arice_sub(@_)
+         :  $self->_xput_arice_sub(undef, @_);
 }
-
-sub get_adaptive_gamma_rice { shift->get_arice(@_); }
-sub put_adaptive_gamma_rice { shift->put_arice(@_); }
 
 
 # Map Start-Step-Stop codes to Start/Stop codes.
@@ -348,34 +345,34 @@ sub add_code {
   }
   $codeinfo{$name} = $rinfo;
   1;
-}
+};
 
-sub _init_codeinfo {
+my $init_codeinfo_sub = sub {
   if (scalar @_initinfo > 0) {
     foreach my $rinfo (@_initinfo) {
       add_code($rinfo);
     }
     @_initinfo = ();
   }
-}
+};
 
-sub find_code {
+sub _find_code {
   my $code = lc shift;
 
-  _init_codeinfo if scalar @_initinfo > 0;
+  $init_codeinfo_sub->() if scalar @_initinfo > 0;
   return $codeinfo{$code};
-}
+};
 
 sub code_is_supported {
   my $code = lc shift;
   my $param;  $param = $1 if $code =~ s/\((.+)\)$//;
-  return defined find_code($code);
+  return defined _find_code($code);
 }
 
 sub code_is_universal {
   my $code = lc shift;
   my $param;  $param = $1 if $code =~ s/\((.+)\)$//;
-  my $inforef = find_code($code);
+  my $inforef = _find_code($code);
   return unless defined $inforef;  # Unknown code.
   return $inforef->{'universal'};
 }
@@ -389,7 +386,7 @@ sub code_put {
   elsif ($code eq 'gamma' ) { return $self->put_gamma(@_); }
   my $param;  $param = $1 if $code =~ s/\((.+)\)$//;
   my $inforef = $codeinfo{$code};
-  $inforef = find_code($code) unless defined $inforef;
+  $inforef = _find_code($code) unless defined $inforef;
   die "Unknown code $code" unless defined $inforef;
   my $sub = $inforef->{'encodesub'};
   die "No encoding sub for code $code!" unless defined $sub;
@@ -409,7 +406,7 @@ sub code_get {
   elsif ($code eq 'gamma' ) { return $self->get_gamma(@_); }
   my $param;  $param = $1 if $code =~ s/\((.+)\)$//;
   my $inforef = $codeinfo{$code};
-  $inforef = find_code($code) unless defined $inforef;
+  $inforef = _find_code($code) unless defined $inforef;
   die "Unknown code $code" unless defined $inforef;
   my $sub = $inforef->{'decodesub'};
   die "No decoding sub for code $code!" unless defined $sub;
@@ -452,6 +449,9 @@ Data::BitStream::XS - A bit stream class including integer coding methods
 
 See L<Data::BitStream> for more examples.
 
+
+
+
 =head1 DESCRIPTION
 
 An XS implementation providing read/write access to bit streams.  This includes
@@ -476,7 +476,13 @@ the vast majority of the benefit is internal.  Hence, for maximum portability
 and flexibility just install this module for the speed, and continue using the
 L<Data::BitStream> class as usual.
 
+
+
+
 =head1 METHODS
+
+
+
 
 =head2 CLASS METHODS
 
@@ -559,7 +565,36 @@ store value C<k>.  This is very good if most values are 0 or near zero.  If
 we have rare values in the tens of thousands, it's not so great.  It is
 likely to be fatal if we ever come across a value of 2 billion.
 
+=item B< add_code >
+
+Used for the dispatch table methods C<code_put> and C<code_get> as well as
+other helper methods like C<code_is_universal> and C<code_is_supported>.
+This is typically handled internally, but can be used to register a new code
+or variant.  An example of an Omega-Golomb code:
+
+   Data::BitStream::XS::add_code(
+      { package   => __PACKAGE__,
+        name      => 'OmegaGolomb',
+        universal => 1,
+        params    => 1,
+        encodesub => sub {shift->put_golomb( sub {shift->put_omega(@_)}, @_ )},
+        decodesub => sub {shift->get_golomb( sub {shift->get_omega(@_)}, @_ )},
+      }
+   );
+
+which registers the name C<OmegaGolomb> as a new universal code that takes
+one parameter.  Given a stream C<$stream>, this is now allowed:
+
+   $stream->erase_for_write;
+   $stream->code_put("OmegaGolomb(5)", 477);
+   $stream->rewind_for_read;
+   my $value = $stream->code_get("OmegaGolomb(5)");
+   die unless $value == 477;
+
 =back
+
+
+
 
 =head2 OBJECT METHODS (I<reading>)
 
@@ -586,6 +621,14 @@ Attempting to read past the end of the stream is a fatal error.  However,
 readahead is allowed as it is speculative.  All positions past the end of
 the stream will always be filled with zero bits.
 
+=item B< readahead($bits>) >
+
+Identical to calling read with 'readahead' as the second argument.
+Returns the value of the next C<$bits> bits (between C<1> and C<maxbits>).
+Returns undef if the current position is at the end.
+Allows reading past the end of the stream (fills with zeros as necessary).
+Does not advance the position.
+
 =item B< skip($bits) >
 
 Advances the position C<$bits> bits.  Used in conjunction with C<readahead>.
@@ -599,6 +642,9 @@ as C<'0011011'>.  Attempting to read past the end of the stream is a fatal
 error.
 
 =back
+
+
+
 
 =head2 OBJECT METHODS (I<writing>)
 
@@ -631,7 +677,16 @@ possible ways.  The default implementation uses:
 
   $self->put_string( $source_stream->to_string );
 
+=item B< put_raw($packed, [, $bits]) >
+
+Writes the packed big-endian vector C<$packed> which has C<$bits> bits of data.
+If C<$bits> is not present, then C<length($packed)> will be used as the
+byte-length.  It is recommended that you include C<$bits>.
+
 =back
+
+
+
 
 =head2 OBJECT METHODS (I<conversion>)
 
@@ -670,6 +725,9 @@ will be used as the byte-length.  It is recommended that you include C<$bits>.
 Similar to C<from_raw>, but using the value returned by C<to_store>.
 
 =back
+
+
+
 
 =head2 OBJECT METHODS (I<other>)
 
@@ -719,6 +777,10 @@ can be helpful in catching mistakes such as reading from a target stream.
 Erases all the data, while the writing state is left unchanged.  The position
 and length will both be 0 after this is finished.
 
+=item B< read_open >
+
+Reads the current input file, if one exists.
+
 =item B< write_open >
 
 Changes the state to writing with no other API-visible changes.
@@ -745,6 +807,9 @@ Unfortunately it isn't completely generic, as it assumes a fixed number of
 lines.  An alternative API would be to have a user supplied sub.
 
 =back
+
+
+
 
 =head2 OBJECT METHODS (I<coding>)
 
@@ -911,12 +976,25 @@ large outliers.  For example to use Omega coding for the base:
 Reads/writes one or more values from the stream in Golomb coding using
 Elias Gamma codes for the base.  This is a convenience since they are common.
 
+=item B< get_gamma_golomb($m [, $count]) >
+
+=item B< put_gamma_golomb($m, @values) >
+
+Aliases for C<get_gammagolomb> and C<put_gammagolomb>.
+
 =item B< get_expgolomb($k [, $count]) >
 
 =item B< put_expgolomb($k, @values) >
 
 Reads/writes one or more values from the stream in Rice coding using
 Elias Gamma codes for the base.  This is a convenience since they are common.
+
+=item B< get_gamma_rice($k [, $count]) >
+
+=item B< put_gamma_rice($k, @values) >
+
+Aliases for C<get_expgolomb> and C<put_expgolomb>.  This name better describes
+the algorithm, but is not in common use.
 
 =item B< get_baer($k [, $count]) >
 
@@ -993,6 +1071,44 @@ etc.
 
 =back
 
+
+
+=head2 SEQUENCE METHODS (I<class methods>)
+
+These methods are exported to allow testing, and because they may be of some
+use for callers.  They are not directly related.
+
+=over 4
+
+=item B<is_prime($n)>
+
+Given an unsigned integer C<n>, returns 0 if the number is not prime, 1 if it
+is prime.  The algorithm currently used is trial division.  Speed is
+approximately equal to the code used by L<Math::Prime::XS> version 0.26
+(the algorithms are identical).  The algorithm may be changed.
+
+=item B<next_prime($n)>
+
+Given an unsigned integer C<n>, returns the next prime number.  This is
+accomplished by trying C<is_prime> each number greater than C<n> (skipping
+multiples of 2, 3, and 5) until a prime is found.  No memory is used during
+the process.  The number returned will always be greater than C<n>, barring
+any possibility of unsigned long overflow.
+
+Note that the sequence of primes starts with 2, 3, 5, 7, ...
+
+=item B<primes($low, $high)>
+
+Returns an array of all primes in the range C<low> to <high> inclusive.  The
+algorithm used is subject to change and may be dynamic depending on the range
+values and/or delta.  Currently it uses repeated calls to C<next_prime>, which
+is low memory and efficient for small ranges, but is much slower than sieving
+for larger ranges.  A change to range sieving using a bit vector is planned.
+
+=back
+
+
+
 =head1 SEE ALSO
 
 =over 4
@@ -1039,9 +1155,15 @@ etc.
 
 =back
 
+
+
+
 =head1 AUTHORS
 
 Dana Jacobsen E<lt>dana@acm.orgE<gt>
+
+
+
 
 =head1 COPYRIGHT
 

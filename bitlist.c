@@ -661,7 +661,7 @@ void from_raw(BitList *list, const char* str, int bits)
   }
 }
 
-void xput_stream (BitList *list, BitList *src)
+void _xput_stream (BitList *list, BitList *src)
 {
   if (src->len <= 0)
     return;
@@ -1913,7 +1913,7 @@ void  put_gamma_golomb (BitList *list, WTYPE m, WTYPE value)
 
 #define QLOW  0
 #define QHIGH 7
-WTYPE get_adaptive_gamma_rice_sub (BitList *list, SV* self, SV* code, int *kp)
+WTYPE get_adaptive_rice_sub (BitList *list, SV* self, SV* code, int *kp)
 {
   int k;
   WTYPE q, v;
@@ -1931,7 +1931,7 @@ WTYPE get_adaptive_gamma_rice_sub (BitList *list, SV* self, SV* code, int *kp)
   if ( (q >= QHIGH) && (k < BITS_PER_WORD) )  *kp += 1;
   return v;
 }
-void  put_adaptive_gamma_rice_sub (BitList *list, SV* self, SV* code, int *kp, WTYPE value)
+void  put_adaptive_rice_sub (BitList *list, SV* self, SV* code, int *kp, WTYPE value)
 {
   int k;
   WTYPE q;
