@@ -28,4 +28,8 @@ extern int   expand_primearray_index(PrimeArray* p, int index);
 extern int   expand_primearray_value(PrimeArray* p, WTYPE value);
 extern int find_best_pair(WTYPE* basis, int basislen, WTYPE val, int adder, int* a, int* b);
 
+extern int prime_count_lower(WTYPE x);
+extern int prime_count_upper(WTYPE x);
+extern int prime_count(WTYPE x);
+
 #endif

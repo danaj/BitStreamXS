@@ -15,7 +15,8 @@ BEGIN {
 use base qw( Exporter );
 our @EXPORT_OK = qw(
                      code_is_supported code_is_universal
-                     is_prime next_prime primes
+                     is_prime next_prime primes prime_count
+                     prime_count_lower prime_count_upper
                    );
 
 BEGIN {
@@ -35,6 +36,10 @@ BEGIN {
 #
 ################################################################################
 
+sub maxbits {    # Works as a class method or object method
+  my $self = shift;
+  _maxbits();
+}
 sub erase_for_write {
   my $self = shift;
   $self->erase;
@@ -162,7 +167,7 @@ sub put_startstepstop {
   my($start, $step, $stop) = @$p;
   return $self->put_binword($start, @_) if $start == $stop;
   return $self->put_rice($start, @_)    if $step == 0;
-  my @pmap = _map_sss_to_ss($start, $step, $stop, $self->maxbits);
+  my @pmap = _map_sss_to_ss($start, $step, $stop, _maxbits());
   die "unexpected death" unless scalar @pmap >= 2;
   $self->put_startstop( [@pmap], @_ );
 }
@@ -174,7 +179,7 @@ sub get_startstepstop {
   my($start, $step, $stop) = @$p;
   return $self->get_binword($start, @_) if $start == $stop;
   return $self->get_rice($start, @_)    if $step == 0;
-  my @pmap = _map_sss_to_ss($start, $step, $stop, $self->maxbits);
+  my @pmap = _map_sss_to_ss($start, $step, $stop, _maxbits());
   die "unexpected death" unless scalar @pmap >= 2;
   return $self->get_startstop( [@pmap], @_ );
 }

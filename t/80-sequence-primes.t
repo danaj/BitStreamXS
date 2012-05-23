@@ -3,11 +3,14 @@ use strict;
 use warnings;
 
 use Test::More;
-use Data::BitStream::XS qw(is_prime next_prime);
+use Data::BitStream::XS qw(is_prime next_prime primes);
 
-plan tests => 3645 + 499;
+my $use64 = Data::BitStream::XS->maxbits > 32;
 
-# Tests duplicated from Math::Primality.
+plan tests => 6 + 19 + 3573 + (5 + 29 + 22 + 23 + 16) + 499 + 11
+              + ($use64 ? 5 : 0);
+
+# Tests mostly taken from from Math::Primality.
 
 ok( is_prime(2), '2 is prime');
 ok(!is_prime(1), '1 is not prime');
@@ -60,27 +63,27 @@ foreach my $n (0 .. 3572) {
   }
 }
 
-my @carmichael = qw/561 1105 1729 2465 2821 6601 8911
-10585 15841 29341 41041 46657 52633
-62745 63973 75361 101101
-999838193331601
-999840927672001
-999851057445241
-999878556600001
-999885684921481
-999895175363161
-999902676805201
-999907821232321
-999919121100481
-999922265173441
-/;
-map { ok(!is_prime($_), "Carmichael Number $_ is not prime") } @carmichael;
+map { ok(!is_prime($_), "A006945 number $_ is not prime") }
+  qw/9 2047 1373653 25326001 3215031751/;
+map { ok(!is_prime($_), "A006945 number $_ is not prime") }
+  qw/2152302898747 3474749660383 341550071728321 341550071728321 3825123056546413051/ if $use64;
 
-map { ok(!is_prime($_), "Pseudoprime (base 2) $_ is not prime" ) } qw/
-341 561 645 1105 1387 1729 1905 2047
-2465 2701 2821 3277 4033 4369 4371
-4681 5461 6601 7957 8321
-/;
+map { ok(!is_prime($_), "Carmichael Number $_ is not prime") }
+  qw/561 1105 1729 2465 2821 6601 8911 10585 15841 29341 41041 46657 52633
+     62745 63973 75361 101101 340561 488881 852841 1857241 6733693
+     9439201 17236801 23382529 34657141 56052361 146843929 216821881/;
+
+map { ok(!is_prime($_), "Pseudoprime (base 2) $_ is not prime" ) }
+  qw/341 561 645 1105 1387 1729 1905 2047 2465 2701 2821 3277 4033 4369 4371
+     4681 5461 6601 7957 8321 52633 88357/;
+
+map { ok(!is_prime($_), "Pseudoprime (base 3) $_ is not prime" ) }
+  qw/121 703 1891 3281 8401 8911 10585 12403 16531 18721 19345 23521 31621
+     44287 47197 55969 63139 74593 79003 82513 87913 88573 97567/;
+
+map { ok(!is_prime($_), "Pseudoprime (base 5) $_ is not prime" ) }
+  qw/781 1541 5461 5611 7813 13021 14981 15751 24211 25351 29539 38081
+     40501 44801 53971 79381/;
 
 
 # Next prime
@@ -88,3 +91,16 @@ for (my $i = 0; $i < (scalar @small_primes) - 1; $i++) {
   my $n = next_prime($small_primes[$i]);
   is("$n", "$small_primes[$i+1]", "the next prime after $small_primes[$i] is $small_primes[$i+1] ?= $n");
 }
+
+# Ranges
+is_deeply( [primes(0, 3572)], \@small_primes, "Primes between 0 and 3572" );
+is_deeply( [primes(2, 20)], [2,3,5,7,11,13,17,19], "Primes between 2 and 20" );
+is_deeply( [primes(30, 70)], [31,37,41,43,47,53,59,61,67], "Primes between 30 and 70" );
+is_deeply( [primes(30, 70)], [31,37,41,43,47,53,59,61,67], "Primes between 30 and 70" );
+is_deeply( [primes(20, 2)], [], "Primes between 20 and 2" );
+is_deeply( [primes(2, 2)], [2], "Primes between 2 and 2" );
+is_deeply( [primes(3, 3)], [3], "Primes between 3 and 3" );
+is_deeply( [primes(3842610773, 3842610773+336)], [3842610773,3842610773+336], "Primegap 34" );
+is_deeply( [primes(3088, 3164)], [3089,3109,3119,3121,3137,3163], "Primes between 3088 and 3164" );
+is_deeply( [primes(3089, 3163)], [3089,3109,3119,3121,3137,3163], "Primes between 3089 and 3163" );
+is_deeply( [primes(3090, 3162)], [3109,3119,3121,3137], "Primes between 3090 and 3162" );

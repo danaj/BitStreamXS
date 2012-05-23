@@ -163,7 +163,7 @@ void
 DESTROY(IN Data::BitStream::XS list)
 
 int
-maxbits(IN Data::BitStream::XS list = 0)
+_maxbits()
   CODE:
     RETVAL = BITS_PER_WORD;
   OUTPUT:
@@ -818,6 +818,14 @@ put_startstop(IN Data::BitStream::XS list, IN SV* p, ...)
 
 
 
+int
+prime_count(IN UV n)
+
+int
+prime_count_lower(IN UV n)
+
+int
+prime_count_upper(IN UV n)
 
 int
 is_prime(IN UV n)
@@ -832,9 +840,9 @@ primes(IN UV low, IN UV high)
     int st_pos = 0;
     UV  curprime;
   PPCODE:
-    /* TODO: verify  GIMME_V == G_ARRAY  (wantarray) */
     if (low > high)
       XSRETURN_EMPTY;
+    if (low >= 2) low--;
     curprime = next_prime(low);
     while (curprime <= high) {
       if (++st_pos > st_size) { EXTEND(SP, BLSTGROW); st_size += BLSTGROW; }
