@@ -3,7 +3,7 @@ use strict;
 use warnings;
 
 use Test::More;
-use Data::BitStream::XS qw(is_prime next_prime primes);
+use Data::BitStream::XS qw(is_prime next_prime primes primesieve);
 
 my $use64 = Data::BitStream::XS->maxbits > 32;
 
@@ -103,4 +103,16 @@ is_deeply( [primes(3, 3)], [3], "Primes between 3 and 3" );
 is_deeply( [primes(3842610773, 3842610773+336)], [3842610773,3842610773+336], "Primegap 34" );
 is_deeply( [primes(3088, 3164)], [3089,3109,3119,3121,3137,3163], "Primes between 3088 and 3164" );
 is_deeply( [primes(3089, 3163)], [3089,3109,3119,3121,3137,3163], "Primes between 3089 and 3163" );
+is_deeply( [primes(3090, 3162)], [3109,3119,3121,3137], "Primes between 3090 and 3162" );
+
+is_deeply( [primesieve(0, 3572)], \@small_primes, "Primes between 0 and 3572" );
+is_deeply( [primesieve(2, 20)], [2,3,5,7,11,13,17,19], "Primes between 2 and 20" );
+is_deeply( [primesieve(30, 70)], [31,37,41,43,47,53,59,61,67], "Primes between 30 and 70" );
+is_deeply( [primesieve(30, 70)], [31,37,41,43,47,53,59,61,67], "Primes between 30 and 70" );
+is_deeply( [primesieve(20, 2)], [], "Primes between 20 and 2" );
+is_deeply( [primesieve(2, 2)], [2], "Primes between 2 and 2" );
+is_deeply( [primesieve(3, 3)], [3], "Primes between 3 and 3" );
+#is_deeply( [primesieve(3842610773, 3842610773+336)], [3842610773,3842610773+336], "Primegap 34" );
+is_deeply( [primesieve(3088, 3164)], [3089,3109,3119,3121,3137,3163], "Primes between 3088 and 3164" );
+is_deeply( [primesieve(3089, 3163)], [3089,3109,3119,3121,3137,3163], "Primes between 3089 and 3163" );
 is_deeply( [primes(3090, 3162)], [3109,3119,3121,3137], "Primes between 3090 and 3162" );

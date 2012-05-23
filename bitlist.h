@@ -10,11 +10,6 @@
 
 #include "wtype.h"
 
-#define BITS_PER_WORD (8 * sizeof(WTYPE))
-#define MAXBIT        (BITS_PER_WORD-1)
-#define NWORDS(bits)  ( ((bits)+BITS_PER_WORD-1) / BITS_PER_WORD )
-#define NBYTES(bits)  ( ((bits)+8-1) / 8 )
-
 typedef enum
 {
    eModeR,

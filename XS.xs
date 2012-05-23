@@ -4,6 +4,7 @@
 #include "XSUB.h"
 /* We're not using anything for which we need ppport.h */
 #include "bitlist.h"
+#include "sequences.h"
 
 #define CHECKPOS \
   if (list->pos >= list->len) \
@@ -849,3 +850,31 @@ primes(IN UV low, IN UV high)
       PUSHs(sv_2mortal(newSVuv(  curprime  )));
       curprime = next_prime(curprime);
     }
+
+void
+primesieve(IN UV low, IN UV high)
+  PREINIT:
+    int st_size = 0;
+    int st_pos = 0;
+    UV  s;
+    WTYPE* sieve;
+  PPCODE:
+    if (low > high)
+      XSRETURN_EMPTY;
+    sieve = sieve_base(high);
+    if (sieve == 0)
+      XSRETURN_EMPTY;
+    if (low <= 2) {
+      EXTEND(SP, 1);
+      PUSHs(sv_2mortal(newSVuv(  2  )));
+      low = 3;
+    }
+    low  = low/2;
+    high = (high-1)/2;
+    for (s = low; s <= high; s++) {
+      if ( ! IS_SET_ARRAY_BIT(sieve, s) ) {
+        if (++st_pos > st_size) { EXTEND(SP, BLSTGROW); st_size += BLSTGROW; }
+        PUSHs(sv_2mortal(newSVuv(  s*2+1  )));
+      }
+    }
+    free(sieve);

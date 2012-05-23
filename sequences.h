@@ -8,13 +8,6 @@
 
 #include "wtype.h"
 
-#if 0
-  #define BITS_PER_WORD (8 * sizeof(WTYPE))
-  #define MAXBIT        (BITS_PER_WORD-1)
-  #define NWORDS(bits)  ( ((bits)+BITS_PER_WORD-1) / BITS_PER_WORD )
-  #define NBYTES(bits)  ( ((bits)+8-1) / 8 )
-#endif
-
 typedef struct
 {
   int    curlen;   /* indicates array[curlen-1] is defined */
@@ -31,5 +24,12 @@ extern int find_best_pair(WTYPE* basis, int basislen, WTYPE val, int adder, int*
 extern int prime_count_lower(WTYPE x);
 extern int prime_count_upper(WTYPE x);
 extern int prime_count(WTYPE x);
+
+extern WTYPE* sieve_base(WTYPE end);
+
+#define SET_ARRAY_BIT(ar,n) \
+   ar[(n)/BITS_PER_WORD]  |=  (1 << ((n)%BITS_PER_WORD))
+#define IS_SET_ARRAY_BIT(ar,n) \
+   (ar[(n)/BITS_PER_WORD] & (1 << ((n)%BITS_PER_WORD)) )
 
 #endif

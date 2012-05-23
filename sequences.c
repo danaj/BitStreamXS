@@ -237,6 +237,28 @@ int prime_count(WTYPE x)
   return count;
 }
 
+WTYPE* sieve_base(WTYPE end)
+{
+  WTYPE start = 0;
+  WTYPE* mem;
+  size_t sieve_val, s;
+  size_t last = (end+1)/2;
+
+  mem = (WTYPE*) calloc( NWORDS(last), sizeof(WTYPE) );
+  if (mem == 0) {
+    croak("allocation failure in sieve_base: could not alloc %lu bits", end+1);
+    return 0;
+  }
+  for (sieve_val = 3; (sieve_val*sieve_val) <= end; sieve_val += 2) {
+    if (!IS_SET_ARRAY_BIT(mem,sieve_val/2)) {
+      for (s = sieve_val*sieve_val; s <= end; s += 2*sieve_val) {
+        SET_ARRAY_BIT(mem,s/2);
+      }
+    }
+  }
+  return mem;
+}
+
 
 /* p->array[index] will be defined if we return non-zero */
 int expand_primearray_index(PrimeArray* p, int index)

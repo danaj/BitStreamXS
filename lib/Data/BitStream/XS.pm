@@ -15,8 +15,8 @@ BEGIN {
 use base qw( Exporter );
 our @EXPORT_OK = qw(
                      code_is_supported code_is_universal
-                     is_prime next_prime primes prime_count
-                     prime_count_lower prime_count_upper
+                     is_prime  next_prime  primes primesieve
+                     prime_count  prime_count_lower  prime_count_upper
                    );
 
 BEGIN {
