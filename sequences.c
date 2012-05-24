@@ -249,14 +249,13 @@ int prime_count(WTYPE n)
 
 WTYPE* sieve_base(WTYPE end)
 {
-  WTYPE start = 0;
   WTYPE* mem;
   size_t n, s;
   size_t last = (end+1)/2;
 
   mem = (WTYPE*) calloc( NWORDS(last), sizeof(WTYPE) );
   if (mem == 0) {
-    croak("allocation failure in sieve_base: could not alloc %lu bits", end+1);
+    croak("allocation failure in sieve_base: could not alloc %lu bits", last);
     return 0;
   }
   /* We could mask words to do quick small prime marking word at a time */
@@ -273,14 +272,13 @@ WTYPE* sieve_base(WTYPE end)
 /* Skip 2 and 3 */
 WTYPE* sieve_base23(WTYPE end)
 {
-  WTYPE start = 0;
   WTYPE* mem;
   size_t n, s;
   size_t last = (end+1)/2;
 
   mem = (WTYPE*) calloc( NWORDS(last), sizeof(WTYPE) );
   if (mem == 0) {
-    croak("allocation failure in sieve_base: could not alloc %lu bits", end+1);
+    croak("allocation failure in sieve_base23: could not alloc %lu bits", last);
     return 0;
   }
   n = 5;
@@ -298,6 +296,116 @@ WTYPE* sieve_base23(WTYPE end)
     }
     n += 4;
   }
+  return mem;
+}
+
+WTYPE* sieve_atkins(WTYPE end)
+{
+  WTYPE* mem;
+  size_t n, s, k;
+  size_t last = end+1;
+  long xx3, dxx, dn, xx4, dxx4, xx, x, yy, min_y;
+  long loopend, y_limit;
+
+  mem = (WTYPE*) calloc( NWORDS(last), sizeof(WTYPE) );
+  if (mem == 0) {
+    croak("allocation failure in sieve_atkins: could not alloc %lu bits", last);
+    return 0;
+  }
+
+  xx3 = 3;
+  loopend = 12 * (long) sqrtf(((float)end-1.0)/3.0);
+  for (dxx = 0; dxx < loopend; dxx += 24) {
+    xx3 += dxx;
+    y_limit = (long) (12.0*sqrtf( (float)end - (float)xx3 )) - 36;
+    n = xx3 + 16;
+    for (dn = -12; dn < (y_limit+1); dn += 72) {
+      n += dn;
+      XOR_ARRAY_BIT(mem,n);
+    }
+    n = xx3 + 4;
+    for (dn = 12; dn < (y_limit+1); dn += 72) {
+      n += dn;
+      XOR_ARRAY_BIT(mem,n);
+    }
+  }
+
+  xx4 = 0;
+  loopend = 4 + 8 * (long) sqrtf(((float)end-1.0)/4.0);
+  for (dxx4 = 4; dxx4 < loopend; dxx4 += 8) {
+    xx4 += dxx4;
+    n = xx4 + 1;
+    if (xx4%3) {
+      y_limit = 4 * (long)sqrtf( (float)end - (float)xx4 ) - 3;
+      for (dn = 0; dn < y_limit; dn += 8) {
+        n += dn;
+        XOR_ARRAY_BIT(mem,n);
+      }
+    } else {
+      y_limit = 12 * (long)sqrtf( (float)end - (float)xx4 ) - 36;
+      n = xx4 + 25;
+      for (dn = -24; dn < (y_limit+1); dn += 72) {
+        n += dn;
+        XOR_ARRAY_BIT(mem,n);
+      }
+      n = xx4 + 1;
+      for (dn = 24; dn < (y_limit+1); dn += 72) {
+        n += dn;
+        XOR_ARRAY_BIT(mem,n);
+      }
+    }
+  }
+
+  xx = 1;
+  loopend = (long) sqrtf((float)end/2.0) + 1;
+  for (x = 3; x < loopend; x += 2) {
+    xx += 4*x - 4;
+    n = 3*xx;
+    if (n > end) {
+      min_y = (( (long) (sqrtf(n - end)) >>2)<<2);
+      yy = min_y * min_y;
+      n -= yy;
+      s = 4*min_y + 4;
+    } else {
+      s = 4;
+    }
+    for (dn = s; dn < 4*x; dn += 8) {
+      n -= dn;
+      if ((n <= end) && ((n%12) == 11))
+        XOR_ARRAY_BIT(mem,n);
+    }
+  }
+
+  xx = 0;
+  loopend = (long) sqrtf((float)end/2.0) + 1;
+  for (x = 2; x < loopend; x += 2) {
+    xx += 4*x - 4;
+    n = 3*xx;
+    if (n > end) {
+      min_y = (( (long) (sqrtf(n - end)) >>2)<<2)-1;
+      yy = min_y * min_y;
+      n -= yy;
+      s = 4*min_y + 4;
+    } else {
+      n--;
+      s = 0;
+    }
+    for (dn = s; dn < 4*x; dn += 8) {
+      n -= dn;
+      if ((n <= end) && ((n%12) == 11))
+        XOR_ARRAY_BIT(mem,n);
+    }
+  }
+
+  loopend = (long) sqrtf(end) + 1;
+  for (n = 5; n < loopend; n += 2)
+    if (IS_SET_ARRAY_BIT(mem,n))
+      for (k = n*n; k <= end; k += n*n)
+        CLR_ARRAY_BIT(mem,k);
+
+  //for (n = 0; n < NWORDS(last); n++)
+  //  mem[n] = ~mem[n];
+
   return mem;
 }
 

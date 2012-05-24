@@ -457,6 +457,8 @@ sub primes {
     return trial_primes($start, $end);
   } elsif ($method =~ /^Sieve$/i) {
     return sieve_primes($start, $end);
+  } elsif ($method =~ /^Atkins$/i) {
+    return atkins_primes($start, $end);
   } else {
     die "Unknown prime method: $method";
   }

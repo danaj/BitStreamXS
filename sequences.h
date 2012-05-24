@@ -27,9 +27,14 @@ extern int prime_count(WTYPE x);
 
 extern WTYPE* sieve_base(WTYPE end);
 extern WTYPE* sieve_base23(WTYPE end);
+extern WTYPE* sieve_atkins(WTYPE end);
 
 #define SET_ARRAY_BIT(ar,n) \
    ar[(n)/BITS_PER_WORD]  |=  (W_ONE << ((n)%BITS_PER_WORD))
+#define XOR_ARRAY_BIT(ar,n) \
+   ar[(n)/BITS_PER_WORD]  ^=  (W_ONE << ((n)%BITS_PER_WORD))
+#define CLR_ARRAY_BIT(ar,n) \
+   ar[(n)/BITS_PER_WORD]  &=  ~(W_ONE << ((n)%BITS_PER_WORD))
 #define IS_SET_ARRAY_BIT(ar,n) \
    (ar[(n)/BITS_PER_WORD] & (W_ONE << ((n)%BITS_PER_WORD)) )
 

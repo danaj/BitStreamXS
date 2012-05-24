@@ -888,7 +888,7 @@ sieve_primes(IN UV low, IN UV high)
       XPUSHs(sv_2mortal(newSVuv(  3  ))); low = 5;
     }
 
-    if (high >= 7) {
+    if (high >= 5) {
       sieve = sieve_base23(high);
       if (sieve == 0)
         XSRETURN_EMPTY;
@@ -920,3 +920,32 @@ sieve_primes(IN UV low, IN UV high)
       free(sieve);
     }
 #endif
+
+void
+atkins_primes(IN UV low, IN UV high)
+  PREINIT:
+    int st_size = 0;
+    int st_pos = 0;
+    WTYPE  s;
+    WTYPE* sieve;
+  PPCODE:
+    if (low > high)
+      XSRETURN_EMPTY;
+    sieve = sieve_atkins(high);
+    if (sieve == 0)
+      XSRETURN_EMPTY;
+
+    if ((low <= 2) && (high >= 2)) {
+      XPUSHs(sv_2mortal(newSVuv(  2  ))); low = 3;
+    }
+    if ((low <= 3) && (high >= 3)) {
+      XPUSHs(sv_2mortal(newSVuv(  3  ))); low = 5;
+    }
+    if ((low%2) == 0) low++;
+    for (s = low; s <= high; s += 2) {
+      if ( IS_SET_ARRAY_BIT(sieve, s) ) {
+        if (++st_pos > st_size) { EXTEND(SP, BLSTGROW); st_size += BLSTGROW; }
+        PUSHs(sv_2mortal(newSVuv(  s  )));
+      }
+    }
+    free(sieve);
