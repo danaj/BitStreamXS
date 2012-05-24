@@ -6,6 +6,7 @@ Revision history for Perl extension Data::BitStream::XS.
   - Make a number of methods private.
   - Pod coverage.
   - Add prime_count functions, including tight upper/lower bounds.
+  - Add simple sieving.  Currently faster than anything else on CPAN.
 
 0.05    17 May 2012
   - include guard for .h files

@@ -835,11 +835,11 @@ UV
 next_prime(IN UV n)
 
 void
-primes(IN UV low, IN UV high)
+trial_primes(IN UV low, IN UV high)
   PREINIT:
     int st_size = 0;
     int st_pos = 0;
-    UV  curprime;
+    WTYPE  curprime;
   PPCODE:
     if (low > high)
       XSRETURN_EMPTY;
@@ -852,29 +852,71 @@ primes(IN UV low, IN UV high)
     }
 
 void
-primesieve(IN UV low, IN UV high)
+sieve_primes(IN UV low, IN UV high)
   PREINIT:
     int st_size = 0;
     int st_pos = 0;
-    UV  s;
+    WTYPE  s;
     WTYPE* sieve;
   PPCODE:
     if (low > high)
       XSRETURN_EMPTY;
+#if 0
     sieve = sieve_base(high);
     if (sieve == 0)
       XSRETURN_EMPTY;
+
     if (low <= 2) {
-      EXTEND(SP, 1);
-      PUSHs(sv_2mortal(newSVuv(  2  )));
+      XPUSHs(sv_2mortal(newSVuv(  2  )));
       low = 3;
     }
+
     low  = low/2;
     high = (high-1)/2;
     for (s = low; s <= high; s++) {
       if ( ! IS_SET_ARRAY_BIT(sieve, s) ) {
         if (++st_pos > st_size) { EXTEND(SP, BLSTGROW); st_size += BLSTGROW; }
-        PUSHs(sv_2mortal(newSVuv(  s*2+1  )));
+        PUSHs(sv_2mortal(newSVuv(  2*s+1  )));
       }
     }
     free(sieve);
+#else
+    if ((low <= 2) && (high >= 2)) {
+      XPUSHs(sv_2mortal(newSVuv(  2  ))); low = 3;
+    }
+    if ((low <= 3) && (high >= 3)) {
+      XPUSHs(sv_2mortal(newSVuv(  3  ))); low = 5;
+    }
+
+    if (high >= 7) {
+      sieve = sieve_base23(high);
+      if (sieve == 0)
+        XSRETURN_EMPTY;
+
+      high = (high-1)/2;
+      s = low/2;;
+
+      /* Get us to the start of the wheel */
+      if ((s%3) == 1) {
+        s++;
+      } else if ((s%3) == 0) {
+        if ( (s <= high) && (!IS_SET_ARRAY_BIT(sieve, s)) ) {
+          XPUSHs(sv_2mortal(newSVuv(  2*s+1  )));
+        }
+        s += 2;
+      }
+      while (s <= high) {
+        if (!IS_SET_ARRAY_BIT(sieve, s)) {
+          if (++st_pos > st_size) { EXTEND(SP, BLSTGROW); st_size += BLSTGROW; }
+          PUSHs(sv_2mortal(newSVuv(  2*s+1  )));
+        }
+        s++;
+        if ( (s <= high) && (!IS_SET_ARRAY_BIT(sieve, s)) ) {
+          if (++st_pos > st_size) { EXTEND(SP, BLSTGROW); st_size += BLSTGROW; }
+          PUSHs(sv_2mortal(newSVuv(  2*s+1  )));
+        }
+        s += 2;
+      }
+      free(sieve);
+    }
+#endif

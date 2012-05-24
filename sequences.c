@@ -104,14 +104,14 @@ int is_prime(WTYPE x)
  * prime_count_lower(x) and prime_count_upper(x) give lower and upper limits,
  * which will bound the exact value.  These bounds should be fairly tight.
  *
- *    pi_upper(x) - pi(x)                     pi_lower(x) - pi(x)
- *    <    10   for x <        5_371          <    10   for x <        9_437
- *    <    50   for x <      295_816          <    50   for x <      136_993
- *    <   100   for x <    1_737_361          <   100   for x <      909_911
- *    <   200   for x <    4_407_916          <   200   for x <    2_274_709
- *    <   400   for x <                       <   400   for x <
- *
- * The upper-lower range is less than 10_000 for all x < 85_849_269.
+ *    pi_upper(x) - pi(x)                      pi_lower(x) - pi(x)
+ *    <    10   for x <         5_371          <    10   for x <        9_437
+ *    <    50   for x <       295_816          <    50   for x <      136_993
+ *    <   100   for x <     1_761_655          <   100   for x <      909_911
+ *    <   200   for x <     9_987_821          <   200   for x <    8_787_901
+ *    <   400   for x <    34_762_891          <   400   for x <   30_332_723
+ *    <  1000   for x <   372_748_528          <  1000   for x <  233_000_533
+ *    <  5000   for x < 1_882_595_905          <  5000   for x <  over 4300M
  *
  * It is common to use the following Chebyshev inequality for x >= 17:
  *    1*x/logx <-> 1.25506*x/logx
@@ -124,9 +124,9 @@ int is_prime(WTYPE x)
  * The formulas of Dusart for higher x are better yet.  I recommend the paper
  * by Burde for further information.
  *
- * I have applied some tightening to the bounds for small numbers.  These
- * bounds are verified via trial.  The Dusart bounds are used for larger
- * numbers.
+ * I have tweaked the bounds formulas for small (under 2000M) numbers so they
+ * are tighter.  These bounds are verified via trial.  The Dusart bounds
+ * (1.8 and 2.51) are used for larger numbers since those are proven.
  *
  */
 
@@ -138,61 +138,37 @@ static const int prime_count_small[] =
 static const float F1 = 1.0;
 int prime_count_lower(WTYPE x)
 {
-  float fx;
-  float flogx;
-  float bound;
+  float fx, flogx;
+  float a = 1.80;
 
   if (x < NPRIME_COUNT_SMALL)
     return prime_count_small[x];
 
   fx = (float)x;
   flogx = logf(x);
-    /*
-       if (x >= l) bound = (fx/flogx) * (F1 + F1/flogx + a/(flogx*flogx));
-       l =   599 a = 0.30
-       l =  1500 a = 0.80
-       l =  2700 a = 0.90
-       l =  3300 a = 1.00
-       l =  3500 a = 1.10
-       l =  5400 a = 1.20
-       l =  5500 a = 1.30
-       l = 11800 a = 1.40
-       l = 11900 a = 1.50
-       l = 19400 a = 1.60
-       l = 19500 a = 1.70
-       l = 32299 a = 1.80
-       l = 32400 a = 1.90
-       l = 71000 a = 2.00
-       l =176000 a = 2.10
-       l =315000 a = 2.20
-     */
 
-  if (x >= W_CONST(10000000)) { /* Dusart's bound */
-    bound = (fx/flogx) * (F1 + F1/flogx + 1.80/(flogx*flogx));
-  } else if (x >= W_CONST( 315000)) {
-    bound = (fx/flogx) * (F1 + F1/flogx + 2.20/(flogx*flogx));
-  } else if (x >= W_CONST( 176000)) {
-    bound = (fx/flogx) * (F1 + F1/flogx + 2.10/(flogx*flogx));
-  } else if (x >= W_CONST( 32299)) {
-    bound = (fx/flogx) * (F1 + F1/flogx + 1.80/(flogx*flogx));
-  } else if (x >= W_CONST( 19400)) {
-    bound = (fx/flogx) * (F1 + F1/flogx + 1.60/(flogx*flogx));
-  } else if (x >= W_CONST(  5500)) {
-    bound = (fx/flogx) * (F1 + F1/flogx + 1.30/(flogx*flogx));
-  } else if (x >= W_CONST(  2700)) {
-    bound = (fx/flogx) * (F1 + F1/flogx + 0.90/(flogx*flogx));
-  } else if (x >= W_CONST(   599)) {
-    bound = (fx/flogx) * (F1 + F1/flogx + 0.30/(flogx*flogx));
-  } else {
-    bound = fx / (flogx-0.7);
-  }
-  return (int) ( bound );
+  if (x < 599)
+    return (int) (fx / (flogx-0.7));
+
+  if      (x <     2700) {  a = 0.30; }
+  else if (x <     5500) {  a = 0.90; }
+  else if (x <    19400) {  a = 1.30; }
+  else if (x <    32299) {  a = 1.60; }
+  else if (x <   176000) {  a = 1.80; }
+  else if (x <   315000) {  a = 2.10; }
+  else if (x <  1100000) {  a = 2.20; }
+  else if (x <  4500000) {  a = 2.31; }
+  else if (x <233000000) {  a = 2.36; }
+  else if (x <240000000) {  a = 2.32; }
+  //else if (x <W_CONST(40000000000)) {  a = 2.35; }
+  else { a = 2.32; }
+
+  return (int) ( (fx/flogx) * (F1 + F1/flogx + a/(flogx*flogx)) );
 }
 int prime_count_upper(WTYPE x)
 {
-  float fx;
-  float flogx;
-  float bound;
+  float fx, flogx;
+  float a = 2.51;
 
   if (x < NPRIME_COUNT_SMALL)
     return prime_count_small[x];
@@ -200,39 +176,73 @@ int prime_count_upper(WTYPE x)
   fx = (float)x;
   flogx = logf(x);
 
-  if        (x >= W_CONST(355991)) {
-    bound = (fx/flogx) * (F1 + F1/flogx + 2.51/(flogx*flogx));
-  } else if (x >= W_CONST(350000)) {
-    bound = (fx/flogx) * (F1 + F1/flogx + 2.54/(flogx*flogx));
-  } else if (x >= W_CONST(59000)) {
-    bound = (fx/flogx) * (F1 + F1/flogx + 2.52/(flogx*flogx));
-  } else if (x >= W_CONST(24000)) {
-    bound = (fx/flogx) * (F1 + F1/flogx + 2.48/(flogx*flogx));
-  } else if (x >= W_CONST(16000)) {
-    bound = (fx/flogx) * (F1 + F1/flogx + 2.30/(flogx*flogx));
-  } else {
-    bound = fx / (flogx-1.098);
-  }
-  return (int) ( bound + F1 );
+  if (x < 16000)
+    return (int) (fx / (flogx-1.098) + F1);
+
+  if      (x <    24000) {  a = 2.30; }
+  else if (x <    59000) {  a = 2.48; }
+  else if (x <   350000) {  a = 2.52; }
+  else if (x <   355991) {  a = 2.54; }
+  else if (x <   356000) {  a = 2.51; }
+  else if (x <  3550000) {  a = 2.50; }
+  else if (x <  3560000) {  a = 2.49; }
+  else if (x <  5000000) {  a = 2.48; }
+  else if (x <  8000000) {  a = 2.47; }
+  else if (x < 13000000) {  a = 2.46; }
+  else if (x < 18000000) {  a = 2.45; }
+  else if (x < 31000000) {  a = 2.44; }
+  else if (x < 41000000) {  a = 2.43; }
+  else if (x < 48000000) {  a = 2.42; }
+  else if (x <119000000) {  a = 2.41; }
+  else if (x <182000000) {  a = 2.40; }
+  else if (x <192000000) {  a = 2.395; }
+  else if (x <213000000) {  a = 2.390; }
+  else if (x <271000000) {  a = 2.385; }
+  else if (x <322000000) {  a = 2.380; }
+  else if (x <400000000) {  a = 2.375; }
+  else if (x <510000000) {  a = 2.370; }
+  else if (x <682000000) {  a = 2.367; }
+  //else if (x <W_CONST(40000000000)) {  a = 2.49; }
+  else { a = 2.362; }
+
+  return (int) ( (fx/flogx) * (F1 + F1/flogx + a/(flogx*flogx)) + F1 );
 }
-int prime_count(WTYPE x)
+int prime_count(WTYPE n)
 {
   WTYPE curprime;
   int count;
 
-  if (x < NPRIME_COUNT_SMALL)
-    return prime_count_small[x];
+  if (n < NPRIME_COUNT_SMALL)
+    return prime_count_small[n];
 
-  /* Beware: astonishingly slow for large x */
-  if      (x >= W_CONST(4476044)) { count =314368; curprime = 4476044; }
-  else if (x >= W_CONST(1001250)) { count = 78592; curprime = 1001250; }
-  else if (x >= W_CONST( 220420)) { count = 19648; curprime =  220420; }
-  else if (x >= W_CONST(  47658)) { count =  4912; curprime =   47658; }
-  else if (x >= W_CONST(  10000)) { count =  1228; curprime =   10000; }
-  else                            { count =    18; curprime =      67; }
-  while (curprime <= x) {
-    curprime = next_prime(curprime);
-    count++;
+  /* For suffiently large n, we should sieve. */
+  if (n > W_CONST(100000)) {
+    WTYPE s;
+    WTYPE* sieve = sieve_base23(n);
+    count = 2;
+    n = (n-1)/2;
+    s = W_CONST(5);
+    while (s <= n) {
+      if (!IS_SET_ARRAY_BIT(sieve, s))
+        count++;
+      s++;
+      if ( (s <= n) && (!IS_SET_ARRAY_BIT(sieve, s)) )
+        count++;
+      s += 2;
+    }
+    free(sieve);
+  } else {
+    /* Trial division */
+    if      (n >= W_CONST(4476044)) { count =314368; curprime = 4476044; }
+    else if (n >= W_CONST(1001250)) { count = 78592; curprime = 1001250; }
+    else if (n >= W_CONST( 220420)) { count = 19648; curprime =  220420; }
+    else if (n >= W_CONST(  47658)) { count =  4912; curprime =   47658; }
+    else if (n >= W_CONST(  10000)) { count =  1228; curprime =   10000; }
+    else                            { count =    18; curprime =      67; }
+    while (curprime <= n) {
+      curprime = next_prime(curprime);
+      count++;
+    }
   }
   return count;
 }
@@ -241,7 +251,7 @@ WTYPE* sieve_base(WTYPE end)
 {
   WTYPE start = 0;
   WTYPE* mem;
-  size_t sieve_val, s;
+  size_t n, s;
   size_t last = (end+1)/2;
 
   mem = (WTYPE*) calloc( NWORDS(last), sizeof(WTYPE) );
@@ -249,12 +259,44 @@ WTYPE* sieve_base(WTYPE end)
     croak("allocation failure in sieve_base: could not alloc %lu bits", end+1);
     return 0;
   }
-  for (sieve_val = 3; (sieve_val*sieve_val) <= end; sieve_val += 2) {
-    if (!IS_SET_ARRAY_BIT(mem,sieve_val/2)) {
-      for (s = sieve_val*sieve_val; s <= end; s += 2*sieve_val) {
+  /* We could mask words to do quick small prime marking word at a time */
+  for (n = 3; (n*n) <= end; n += 2) {
+    if (!IS_SET_ARRAY_BIT(mem,n/2)) {
+      for (s = n*n; s <= end; s += 2*n) {
         SET_ARRAY_BIT(mem,s/2);
       }
     }
+  }
+  return mem;
+}
+
+/* Skip 2 and 3 */
+WTYPE* sieve_base23(WTYPE end)
+{
+  WTYPE start = 0;
+  WTYPE* mem;
+  size_t n, s;
+  size_t last = (end+1)/2;
+
+  mem = (WTYPE*) calloc( NWORDS(last), sizeof(WTYPE) );
+  if (mem == 0) {
+    croak("allocation failure in sieve_base: could not alloc %lu bits", end+1);
+    return 0;
+  }
+  n = 5;
+  while ( (n*n) <= end ) {
+    if (!IS_SET_ARRAY_BIT(mem,n/2)) {
+      for (s = n*n; s <= end; s += 2*n) {
+        SET_ARRAY_BIT(mem,s/2);
+      }
+    }
+    n += 2;
+    if ( ((n*n) <= end) && (!IS_SET_ARRAY_BIT(mem,n/2)) ) {
+      for (s = n*n; s <= end; s += 2*n) {
+        SET_ARRAY_BIT(mem,s/2);
+      }
+    }
+    n += 4;
   }
   return mem;
 }

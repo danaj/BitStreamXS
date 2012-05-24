@@ -41,3 +41,6 @@
 
 - Change primes() to sieve if a reasonable range is asked for.
 - Should primes() return an array, a ref, or either depending on GIMME?
+
+- cleanup primes
+- document new primes() method

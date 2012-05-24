@@ -15,7 +15,7 @@ BEGIN {
 use base qw( Exporter );
 our @EXPORT_OK = qw(
                      code_is_supported code_is_universal
-                     is_prime  next_prime  primes primesieve
+                     is_prime  next_prime  primes
                      prime_count  prime_count_lower  prime_count_upper
                    );
 
@@ -430,6 +430,39 @@ sub code_get {
 #                               CLASS METHODS
 #
 ################################################################################
+
+sub primes {
+  my $optref = {};  $optref = shift if ref $_[0] eq 'HASH';
+  die "no parameters to primes" unless scalar @_ > 0;
+  die "too many parameters to primes" unless scalar @_ <= 2;
+  my $start = (@_ == 2)  ?  shift  :  2;
+  my $end = shift;
+
+  # Validate parameters
+  if ( (!defined $start) || (!defined $end) ||
+       #($start < 0) || ($end < 0) ||
+       ($start =~ tr/0123456789//c) || ($end =~ tr/0123456789//c)
+     ) {
+    die "Parameters must be positive integers";
+  }
+  return () if $start > $end;
+
+  my $method = $optref->{'method'};
+  if (!defined $method) {
+    $method = 'Sieve';
+    if (($start+10) >= $end) { $method = 'Trial'; }
+  }
+
+  if ($method =~ /^Trial$/i) {
+    return trial_primes($start, $end);
+  } elsif ($method =~ /^Sieve$/i) {
+    return sieve_primes($start, $end);
+  } else {
+    die "Unknown prime method: $method";
+  }
+  ();
+}
+
 
 1;
 
