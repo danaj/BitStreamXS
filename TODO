@@ -44,3 +44,6 @@
 
 - cleanup primes
 - document new primes() method
+
+- benchmarks for primes.  Include Math::Prime::XS and Math::Prime::FastSieve.
+  time perl -Iblib/lib -Iblib/arch -e 'use Data::BitStream::XS qw/primes/; my @primes = primes({method=>sieve},2,100_000_000); print scalar @primes, "\n";'

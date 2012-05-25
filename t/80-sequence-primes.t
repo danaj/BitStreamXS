@@ -7,7 +7,7 @@ use Data::BitStream::XS qw(is_prime next_prime primes primes);
 
 my $use64 = Data::BitStream::XS->maxbits > 32;
 
-plan tests => 6 + 19 + 3573 + (5 + 29 + 22 + 23 + 16) + 499 + 3*12+1
+plan tests => 6 + 19 + 3573 + (5 + 29 + 22 + 23 + 16) + 499 + 4*12+1+1
               + ($use64 ? 5 : 0);
 
 # Tests mostly taken from from Math::Primality.
@@ -93,7 +93,7 @@ for (my $i = 0; $i < (scalar @small_primes) - 1; $i++) {
 }
 
 # Ranges
-foreach my $method (qw/sieve trial atkins/) {
+foreach my $method (qw/trial erat atkins sieve/) {
   is_deeply( [primes({method=>$method}, 0, 3572)], \@small_primes, "Primes between 0 and 3572" );
   is_deeply( [primes({method=>$method}, 2, 20)], [2,3,5,7,11,13,17,19], "Primes between 2 and 20" );
   is_deeply( [primes({method=>$method}, 30, 70)], [31,37,41,43,47,53,59,61,67], "Primes between 30 and 70" );
@@ -107,4 +107,9 @@ foreach my $method (qw/sieve trial atkins/) {
   is_deeply( [primes({method=>$method}, 3089, 3163)], [3089,3109,3119,3121,3137,3163], "Primes between 3089 and 3163" );
   is_deeply( [primes({method=>$method}, 3090, 3162)], [3109,3119,3121,3137], "Primes between 3090 and 3162" );
 }
+
+# Compare the two sieves
+is_deeply( [primes({method=>'erat'}, 0, 1000000)], [primes({method=>'atkins'}, 0, 1000000)], "Compare sieves" );
+
+# Large 32-bit gap using trial
 is_deeply( [primes({method=>'trial'}, 3842610773, 3842610773+336)], [3842610773,3842610773+336], "Primegap 34 inclusive" );

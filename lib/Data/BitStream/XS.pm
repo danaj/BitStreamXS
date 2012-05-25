@@ -450,15 +450,21 @@ sub primes {
   my $method = $optref->{'method'};
   if (!defined $method) {
     $method = 'Sieve';
-    if (($start+10) >= $end) { $method = 'Trial'; }
+    if (($start+1) >= $end) { $method = 'Trial'; }
   }
 
   if ($method =~ /^Trial$/i) {
+    # Force trial division (wheel factorized)
     return trial_primes($start, $end);
-  } elsif ($method =~ /^Sieve$/i) {
-    return sieve_primes($start, $end);
-  } elsif ($method =~ /^Atkins$/i) {
+  } elsif ($method =~ /^Erat\w*$/i) {
+    # Force Sieve of Eratosthenes using a temporary buffer
+    return erat_primes($start, $end);
+  } elsif ($method =~ /^Atkin\w*$/i) {
+    # Force Sieve of Atkins using a temporary buffer
     return atkins_primes($start, $end);
+  } elsif ($method =~ /^Sieve$/i) {
+    # Do a smart cached thing (typically sieving).
+    return sieve_primes($start, $end);
   } else {
     die "Unknown prime method: $method";
   }

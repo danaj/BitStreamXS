@@ -23,8 +23,8 @@
 #define BLSTGROW 64
 
 static int is_positive_number(const char* str) {
-  int i;
-  int len = strlen(str);
+  size_t i;
+  size_t len = strlen(str);
   if (len == 0)
     return 0;
   for (i = 0; i < len; i++) {
@@ -36,8 +36,8 @@ static int is_positive_number(const char* str) {
 
 static int parse_binary_string(const char* str, UV* val) {
   UV v = 0;
-  int i;
-  int len = strlen(str);
+  size_t i;
+  size_t len = strlen(str);
   if (len == 0)
     return 0;
   for (i = 0; i < len; i++) {
@@ -819,13 +819,13 @@ put_startstop(IN Data::BitStream::XS list, IN SV* p, ...)
 
 
 
-int
+long
 prime_count(IN UV n)
 
-int
+long
 prime_count_lower(IN UV n)
 
-int
+long
 prime_count_upper(IN UV n)
 
 int
@@ -833,6 +833,37 @@ is_prime(IN UV n)
 
 UV
 next_prime(IN UV n)
+
+void
+sieve_primes(IN UV low, IN UV high)
+  PREINIT:
+    int st_size = 0;
+    int st_pos = 0;
+    WTYPE  s;
+    const WTYPE* sieve;
+  PPCODE:
+    if (low > high)
+      XSRETURN_EMPTY;
+
+    if (get_prime_cache(high, &sieve) < high) {
+      croak("Could not generate sieve for %ld", high);
+      XSRETURN_EMPTY;
+    }
+
+    if (low <= 2) {
+      XPUSHs(sv_2mortal(newSVuv(  2  )));
+      low = 3;
+    }
+
+    low  = low/2;
+    high = (high-1)/2;
+    for (s = low; s <= high; s++) {
+      if ( ! IS_SET_ARRAY_BIT(sieve, s) ) {
+        if (++st_pos > st_size) { EXTEND(SP, BLSTGROW); st_size += BLSTGROW; }
+        PUSHs(sv_2mortal(newSVuv(  2*s+1  )));
+      }
+    }
+
 
 void
 trial_primes(IN UV low, IN UV high)
@@ -852,7 +883,7 @@ trial_primes(IN UV low, IN UV high)
     }
 
 void
-sieve_primes(IN UV low, IN UV high)
+erat_primes(IN UV low, IN UV high)
   PREINIT:
     int st_size = 0;
     int st_pos = 0;
@@ -861,8 +892,8 @@ sieve_primes(IN UV low, IN UV high)
   PPCODE:
     if (low > high)
       XSRETURN_EMPTY;
-#if 0
-    sieve = sieve_base(high);
+
+    sieve = sieve_erat(high);
     if (sieve == 0)
       XSRETURN_EMPTY;
 
@@ -880,46 +911,6 @@ sieve_primes(IN UV low, IN UV high)
       }
     }
     free(sieve);
-#else
-    if ((low <= 2) && (high >= 2)) {
-      XPUSHs(sv_2mortal(newSVuv(  2  ))); low = 3;
-    }
-    if ((low <= 3) && (high >= 3)) {
-      XPUSHs(sv_2mortal(newSVuv(  3  ))); low = 5;
-    }
-
-    if (high >= 5) {
-      sieve = sieve_base23(high);
-      if (sieve == 0)
-        XSRETURN_EMPTY;
-
-      high = (high-1)/2;
-      s = low/2;;
-
-      /* Get us to the start of the wheel */
-      if ((s%3) == 1) {
-        s++;
-      } else if ((s%3) == 0) {
-        if ( (s <= high) && (!IS_SET_ARRAY_BIT(sieve, s)) ) {
-          XPUSHs(sv_2mortal(newSVuv(  2*s+1  )));
-        }
-        s += 2;
-      }
-      while (s <= high) {
-        if (!IS_SET_ARRAY_BIT(sieve, s)) {
-          if (++st_pos > st_size) { EXTEND(SP, BLSTGROW); st_size += BLSTGROW; }
-          PUSHs(sv_2mortal(newSVuv(  2*s+1  )));
-        }
-        s++;
-        if ( (s <= high) && (!IS_SET_ARRAY_BIT(sieve, s)) ) {
-          if (++st_pos > st_size) { EXTEND(SP, BLSTGROW); st_size += BLSTGROW; }
-          PUSHs(sv_2mortal(newSVuv(  2*s+1  )));
-        }
-        s += 2;
-      }
-      free(sieve);
-    }
-#endif
 
 void
 atkins_primes(IN UV low, IN UV high)
@@ -938,14 +929,12 @@ atkins_primes(IN UV low, IN UV high)
     if ((low <= 2) && (high >= 2)) {
       XPUSHs(sv_2mortal(newSVuv(  2  ))); low = 3;
     }
-    if ((low <= 3) && (high >= 3)) {
-      XPUSHs(sv_2mortal(newSVuv(  3  ))); low = 5;
-    }
-    if ((low%2) == 0) low++;
-    for (s = low; s <= high; s += 2) {
-      if ( IS_SET_ARRAY_BIT(sieve, s) ) {
+    low  = low/2;
+    high = (high-1)/2;
+    for (s = low; s <= high; s++) {
+      if ( ! IS_SET_ARRAY_BIT(sieve, s) ) {
         if (++st_pos > st_size) { EXTEND(SP, BLSTGROW); st_size += BLSTGROW; }
-        PUSHs(sv_2mortal(newSVuv(  s  )));
+        PUSHs(sv_2mortal(newSVuv(  2*s+1  )));
       }
     }
     free(sieve);
