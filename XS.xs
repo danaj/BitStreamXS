@@ -834,107 +834,100 @@ is_prime(IN UV n)
 UV
 next_prime(IN UV n)
 
-void
+
+SV*
 sieve_primes(IN UV low, IN UV high)
   PREINIT:
-    int st_size = 0;
-    int st_pos = 0;
     WTYPE  s;
-    const WTYPE* sieve;
-  PPCODE:
-    if (low > high)
-      XSRETURN_EMPTY;
-
-    if (get_prime_cache(high, &sieve) < high) {
-      croak("Could not generate sieve for %ld", high);
-      XSRETURN_EMPTY;
-    }
-
-    if (low <= 2) {
-      XPUSHs(sv_2mortal(newSVuv(  2  )));
-      low = 3;
-    }
-
-    low  = low/2;
-    high = (high-1)/2;
-    for (s = low; s <= high; s++) {
-      if ( ! IS_SET_ARRAY_BIT(sieve, s) ) {
-        if (++st_pos > st_size) { EXTEND(SP, BLSTGROW); st_size += BLSTGROW; }
-        PUSHs(sv_2mortal(newSVuv(  2*s+1  )));
+    const unsigned char* sieve;
+    AV* av = newAV();
+  CODE:
+    if (low <= high) {
+      if (get_prime_cache(high, &sieve) < high) {
+        croak("Could not generate sieve for %ld", high);
+      } else {
+        if ((low <= 2) && (high >= 2)) { av_push(av, newSVuv( 2 )); }
+        if ((low <= 3) && (high >= 3)) { av_push(av, newSVuv( 3 )); }
+        if ((low <= 5) && (high >= 5)) { av_push(av, newSVuv( 5 )); }
+        if (low < 7) { low = 7; }
+        START_DO_FOR_EACH_SIEVE_PRIME( sieve, low, high ) {
+           av_push(av,newSVuv(p));
+        } END_DO_FOR_EACH_SIEVE_PRIME
       }
     }
+    RETVAL = newRV_noinc( (SV*) av );
+  OUTPUT:
+    RETVAL
 
 
-void
+SV*
 trial_primes(IN UV low, IN UV high)
   PREINIT:
-    int st_size = 0;
-    int st_pos = 0;
     WTYPE  curprime;
-  PPCODE:
-    if (low > high)
-      XSRETURN_EMPTY;
-    if (low >= 2) low--;
-    curprime = next_prime(low);
-    while (curprime <= high) {
-      if (++st_pos > st_size) { EXTEND(SP, BLSTGROW); st_size += BLSTGROW; }
-      PUSHs(sv_2mortal(newSVuv(  curprime  )));
-      curprime = next_prime(curprime);
+    AV* av = newAV();
+  CODE:
+    if (low <= high) {
+      if (low >= 2) low--;   /* Make sure low gets included */
+      curprime = next_prime(low);
+      while (curprime <= high) {
+        av_push(av,newSVuv(curprime));
+        curprime = next_prime(curprime);
+      }
     }
+    RETVAL = newRV_noinc( (SV*) av );
+  OUTPUT:
+    RETVAL
 
-void
+
+SV*
 erat_primes(IN UV low, IN UV high)
   PREINIT:
-    int st_size = 0;
-    int st_pos = 0;
-    WTYPE  s;
-    WTYPE* sieve;
-  PPCODE:
-    if (low > high)
-      XSRETURN_EMPTY;
-
-    sieve = sieve_erat(high);
-    if (sieve == 0)
-      XSRETURN_EMPTY;
-
-    if (low <= 2) {
-      XPUSHs(sv_2mortal(newSVuv(  2  )));
-      low = 3;
-    }
-
-    low  = low/2;
-    high = (high-1)/2;
-    for (s = low; s <= high; s++) {
-      if ( ! IS_SET_ARRAY_BIT(sieve, s) ) {
-        if (++st_pos > st_size) { EXTEND(SP, BLSTGROW); st_size += BLSTGROW; }
-        PUSHs(sv_2mortal(newSVuv(  2*s+1  )));
+    unsigned char* sieve;
+    AV* av = newAV();
+  CODE:
+    if (low <= high) {
+      sieve = sieve_erat30(high);
+      if (sieve == 0) {
+        croak("Could not generate sieve for %ld", high);
+      } else {
+        if ((low <= 2) && (high >= 2)) { av_push(av, newSVuv( 2 )); }
+        if ((low <= 3) && (high >= 3)) { av_push(av, newSVuv( 3 )); }
+        if ((low <= 5) && (high >= 5)) { av_push(av, newSVuv( 5 )); }
+        if (low < 7) { low = 7; }
+        START_DO_FOR_EACH_SIEVE_PRIME( sieve, low, high ) {
+           av_push(av,newSVuv(p));
+        } END_DO_FOR_EACH_SIEVE_PRIME
+        free(sieve);
       }
     }
-    free(sieve);
+    RETVAL = newRV_noinc( (SV*) av );
+  OUTPUT:
+    RETVAL
 
-void
-atkins_primes(IN UV low, IN UV high)
+
+SV*
+erat_simple_primes(IN UV low, IN UV high)
   PREINIT:
-    int st_size = 0;
-    int st_pos = 0;
-    WTYPE  s;
     WTYPE* sieve;
-  PPCODE:
-    if (low > high)
-      XSRETURN_EMPTY;
-    sieve = sieve_atkins(high);
-    if (sieve == 0)
-      XSRETURN_EMPTY;
-
-    if ((low <= 2) && (high >= 2)) {
-      XPUSHs(sv_2mortal(newSVuv(  2  ))); low = 3;
-    }
-    low  = low/2;
-    high = (high-1)/2;
-    for (s = low; s <= high; s++) {
-      if ( ! IS_SET_ARRAY_BIT(sieve, s) ) {
-        if (++st_pos > st_size) { EXTEND(SP, BLSTGROW); st_size += BLSTGROW; }
-        PUSHs(sv_2mortal(newSVuv(  2*s+1  )));
+    WTYPE s;
+    AV* av = newAV();
+  CODE:
+    if (low <= high) {
+      sieve = sieve_erat(high);
+      if (sieve == 0) {
+        croak("Could not generate sieve for %ld", high);
+      } else {
+        if (low <= 2) { av_push(av, newSVuv( 2 )); low = 3; }
+        low  = low/2;
+        high = (high-1)/2;
+        for (s = low; s <= high; s++) {
+          if ( ! IS_SET_ARRAY_BIT(sieve, s) ) {
+            av_push(av,newSVuv( 2*s+1 ));
+          }
+        }
+        free(sieve);
       }
     }
-    free(sieve);
+    RETVAL = newRV_noinc( (SV*) av );
+  OUTPUT:
+    RETVAL

@@ -10,7 +10,7 @@
 
 /********************  primes  ********************/
 
-static WTYPE* prime_cache_sieve = 0;
+static unsigned char* prime_cache_sieve = 0;
 static WTYPE  prime_cache_size  = 0;
 
 /* Get the maximum sieved value of the cached prime sieve. */
@@ -22,10 +22,11 @@ WTYPE get_prime_cache_size(void)
 /*
  * Get the size and a pointer to the cached prime sieve.
  * Returns the maximum sieved value in the sieve.
- * The sieve is word based, where each bit b corresponds to n = 2*b+1.
  * Allocates and sieves if needed.
+ *
+ * The sieve holds 30 numbers per byte, using a mod-30 wheel.
  */
-WTYPE get_prime_cache(WTYPE n, const WTYPE** sieve)
+WTYPE get_prime_cache(WTYPE n, const unsigned char** sieve)
 {
   n = ((n+1)/2)*2;  /* bump n up to next even number */
 
@@ -38,14 +39,7 @@ WTYPE get_prime_cache(WTYPE n, const WTYPE** sieve)
     /* Sieve a bit more than asked, to mitigate thrashing */
     n += 1000;
 
-#if 1
-    if (n > 100000)
-      prime_cache_sieve = sieve_atkins(n);
-    else
-      prime_cache_sieve = sieve_erat(n);
-#else
-    prime_cache_sieve = sieve_erat(n);
-#endif
+    prime_cache_sieve = sieve_erat30(n);
 
     if (prime_cache_sieve != 0)
       prime_cache_size = n;
@@ -55,6 +49,8 @@ WTYPE get_prime_cache(WTYPE n, const WTYPE** sieve)
     *sieve = prime_cache_sieve;
   return prime_cache_size;
 }
+
+
 
 /* primes 2,3,5,7,11,13,17,19,23,29,31 as bits */
 #define SMALL_PRIMES_MASK W_CONST(2693408940)
@@ -89,14 +85,34 @@ static int _is_prime7(WTYPE x)
 
 int is_prime(WTYPE x)
 {
+  WTYPE q, i;
+
   if (x <= 31)
     return ((SMALL_PRIMES_MASK >> x) & 1);
 
-  WTYPE q, i;
+  /* Quick determination if the number is a multiple of 2, 3, or 5 */
   if ( (MOD235_MASK >> (x%30)) & 1 )
     return 0;
 
+  /* If we've sieved this far, look at the sieve */
+  if (prime_cache_size >= x)
+    return is_prime_in_sieve(prime_cache_sieve, x);
+
+  /* Trial division, mod 30 */
   return _is_prime7(x);
+}
+
+static WTYPE next_sieve_prime(WTYPE n)
+{
+  n++;
+  if (prime_cache_size < n)
+    return 0;
+
+  START_DO_FOR_EACH_SIEVE_PRIME(prime_cache_sieve, n, prime_cache_size)
+    return p;
+  END_DO_FOR_EACH_SIEVE_PRIME;
+
+  return 0;
 }
 
 static const long prime_next_small[] = 
@@ -114,6 +130,12 @@ WTYPE next_prime(WTYPE x)
 
   if (x < NPRIME_NEXT_SMALL)
     return prime_next_small[x];
+
+#if 0
+  n = next_sieve_prime(x);
+  if (n > 0)
+    return n;
+#endif
 
   x++;
   k0 = x/L;
@@ -192,8 +214,7 @@ long prime_count_lower(WTYPE x)
   else if (x <  4500000) {  a = 2.31; }
   else if (x <233000000) {  a = 2.36; }
   else if (x <240000000) {  a = 2.32; }
-  //else if (x <W_CONST(40000000000)) {  a = 2.35; }
-  else { a = 2.32; }
+  else if (x <W_CONST(0xFFFFFFFF)) {  a = 2.32; }
 
   return (long) ( (fx/flogx) * (F1 + F1/flogx + a/(flogx*flogx)) );
 }
@@ -234,19 +255,18 @@ long prime_count_upper(WTYPE x)
   else if (x <400000000) {  a = 2.375; }
   else if (x <510000000) {  a = 2.370; }
   else if (x <682000000) {  a = 2.367; }
-  //else if (x <W_CONST(40000000000)) {  a = 2.49; }
-  else { a = 2.362; }
+  else if (x <W_CONST(0xFFFFFFFF)) {  a = 2.262; }
 
   return (long) ( (fx/flogx) * (F1 + F1/flogx + a/(flogx*flogx)) + F1 );
 }
 
 long prime_count(WTYPE n)
 {
-  const WTYPE* sieve;
+  const unsigned char* sieve;
   WTYPE s;
   long count, full_words;
-  static WTYPE last_fw = 1;
-  static long  last_count = 18;
+  static WTYPE last_fw = 0;
+  static long  last_count = 3;
 
   if (n < NPRIME_COUNT_SMALL)
     return prime_count_small[n];
@@ -256,41 +276,43 @@ long prime_count(WTYPE n)
     croak("Couldn't generate sieve for prime_count");
     return 0;
   }
-  n = (n-1)/2;
-  full_words = NWORDS(n) - 1;
 
-  /*   count = 2;
-       for (s = W_CONST(5/2); s <= n; s++)
-         if ( ! IS_SET_ARRAY_BIT(sieve, s) )
-           count++;
-       return count;      */
-
-  count = 1;
+#if 0
+  count = 3;
+  START_DO_FOR_EACH_SIEVE_PRIME(sieve, 7, n)
+    count++;
+  END_DO_FOR_EACH_SIEVE_PRIME;
+#else
+  count = 3;
+  full_words = n / (30*sizeof(WTYPE));
   s = 0;
 
   /* Start from last word position if we can.  This is a big speedup when
-     calling prime_count many times with successively larger numbers. */
+  *      calling prime_count many times with successively larger numbers. */
   if (full_words >= last_fw) {
     s = last_fw;
     count = last_count;
   }
 
   /* Count 0 bits using Wegner/Lehmer/Kernighan method. */
-  for (; s < full_words; s++) {
-    WTYPE word = ~sieve[s];
-    while (word) {
-      word &= word-1;
-      count++;
+  {
+    WTYPE* wsieve = (WTYPE*) sieve;
+    for (; s < full_words; s++) {
+      WTYPE word = ~wsieve[s];
+      while (word) {
+        word &= word-1;
+        count++;
+      }
     }
   }
 
   last_fw    = full_words;
   last_count = count;
 
-  /* Count primes in the last (partial) word */
-  for (s = full_words*BITS_PER_WORD; s <= n; s++)
-    if ( ! IS_SET_ARRAY_BIT(sieve, s) )
-      count++;
+  START_DO_FOR_EACH_SIEVE_PRIME(sieve, 30*sizeof(WTYPE)*full_words, n)
+    count++;
+  END_DO_FOR_EACH_SIEVE_PRIME;
+#endif
 
   return count;
 }
@@ -304,148 +326,70 @@ WTYPE* sieve_erat(WTYPE end)
 
   mem = (WTYPE*) calloc( NWORDS(last), sizeof(WTYPE) );
   if (mem == 0) {
-    croak("allocation failure in sieve_base: could not alloc %lu bits", (unsigned long)last);
+    croak("allocation failure in sieve_erat: could not alloc %lu bits", (unsigned long)last);
     return 0;
   }
-  /* We could mask words to do quick small prime marking word at a time */
-  for (n = 3; (n*n) <= end; n += 2) {
-    if (!IS_SET_ARRAY_BIT(mem,n/2)) {
-      for (s = n*n; s <= end; s += 2*n) {
-        SET_ARRAY_BIT(mem,s/2);
-      }
-    }
+
+  n = 3;
+  while ( (n*n) <= end) {
+    for (s = n*n; s <= end; s += 2*n)
+      SET_ARRAY_BIT(mem,s/2);
+    do { n += 2; } while (IS_SET_ARRAY_BIT(mem,n/2));
   }
 
-  /* Mark 1 (2*0+1) as composite */
-  SET_ARRAY_BIT(mem, 0);
+  SET_ARRAY_BIT(mem, 1/2);  /* 1 is composite */
 
   return mem;
 }
 
 
-WTYPE* sieve_atkins(WTYPE end)
+/* Wheel 30 sieve, based on code from Terje Mathisen (1998). */
+unsigned char* sieve_erat30(WTYPE end)
 {
-  WTYPE* mem;
-  size_t n, s, k;
-  size_t last = (end+1+1)/2;
-  long loopend, y_limit, dn;
+  unsigned char* mem;
+  size_t max_buf, buffer_words;
+  WTYPE prime;
 
-  end++;
-  /* One bit per odd number */
-  mem = (WTYPE*) malloc( NWORDS(last) * sizeof(WTYPE) );
+  max_buf = (end + 29) / 30;
+  buffer_words = (end + (30*sizeof(WTYPE)) - 1) / (30*sizeof(WTYPE));
+  mem = (unsigned char*) calloc( buffer_words, sizeof(WTYPE) );
   if (mem == 0) {
-    croak("allocation failure in sieve_atkins: could not alloc %lu bits", (unsigned long)last);
+    croak("allocation failure in sieve_erat30: could not alloc %lu bytes", (unsigned long)(buffer_words*sizeof(WTYPE)));
     return 0;
   }
-  /* mark everything as a composite */
-  memset(mem, 0xFF, NBYTES(last));
 
-  {
-    long xx3 = 3;
-    long dxx;
-    loopend = 12 * (long) sqrtf(((float)end-1.0)/3.0);
-    for (dxx = 0; dxx < loopend; dxx += 24) {
-      xx3 += dxx;
-      y_limit = (long) (12.0*sqrtf( (float)end - (float)xx3 )) - 36;
-      n = xx3 + 16;
-      for (dn = -12; dn < (y_limit+1); dn += 72) {
-        n += dn;
-        XOR_ARRAY_BIT(mem,n/2);
-      }
-      n = xx3 + 4;
-      for (dn = 12; dn < (y_limit+1); dn += 72) {
-        n += dn;
-        XOR_ARRAY_BIT(mem,n/2);
-      }
+  for (prime = 7; (prime*prime) <= end; prime = next_prime(prime)) {
+    WTYPE step = prime * 2;
+    WTYPE curr = prime * prime;
+    WTYPE dcurr = curr/30;
+    WTYPE mcurr = curr - dcurr*30;
+    WTYPE i;
+    WTYPE dstep[30];
+    WTYPE nextm[30];
+
+    for (i = 1; i < 30; i += 2) {
+      WTYPE d, m;
+      WTYPE s = i;
+      do {
+        s += step;
+        d = s/30;
+        m = s - d*30;
+      } while (masktab30[m] == 0);
+      dstep[i] = d;
+      nextm[i] = m;
     }
+
+    do {
+      mem[dcurr] |= masktab30[mcurr];
+      dcurr += dstep[mcurr];
+      mcurr = nextm[mcurr];
+    } while (dcurr < max_buf);
   }
 
-  {
-    long xx4 = 0;
-    long dxx4;
-    loopend = 4 + 8 * (long) sqrtf(((float)end-1.0)/4.0);
-    for (dxx4 = 4; dxx4 < loopend; dxx4 += 8) {
-      xx4 += dxx4;
-      n = xx4 + 1;
-      if (xx4%3) {
-        y_limit = 4 * (long)sqrtf( (float)end - (float)xx4 ) - 3;
-        for (dn = 0; dn < y_limit; dn += 8) {
-          n += dn;
-          XOR_ARRAY_BIT(mem,n/2);
-        }
-      } else {
-        y_limit = 12 * (long)sqrtf( (float)end - (float)xx4 ) - 36;
-        n = xx4 + 25;
-        for (dn = -24; dn < (y_limit+1); dn += 72) {
-          n += dn;
-          XOR_ARRAY_BIT(mem,n/2);
-        }
-        n = xx4 + 1;
-        for (dn = 24; dn < (y_limit+1); dn += 72) {
-          n += dn;
-          XOR_ARRAY_BIT(mem,n/2);
-        }
-      }
-    }
-  }
-
-  {
-    long xx = 1;
-    long x;
-    loopend = (long) sqrtf((float)end/2.0) + 1;
-    for (x = 3; x < loopend; x += 2) {
-      xx += 4*x - 4;
-      n = 3*xx;
-      if (n > end) {
-        long min_y = (( (long) (sqrtf(n - end)) >>2)<<2);
-        long yy = min_y * min_y;
-        n -= yy;
-        s = 4*min_y + 4;
-      } else {
-        s = 4;
-      }
-      for (dn = s; dn < 4*x; dn += 8) {
-        n -= dn;
-        if ((n <= end) && ((n%12) == 11))
-          XOR_ARRAY_BIT(mem,n/2);
-      }
-    }
-
-    xx = 0;
-    loopend = (long) sqrtf((float)end/2.0) + 1;
-    for (x = 2; x < loopend; x += 2) {
-      xx += 4*x - 4;
-      n = 3*xx;
-      if (n > end) {
-        long min_y = (( (long) (sqrtf(n - end)) >>2)<<2)-1;
-        long yy = min_y * min_y;
-        n -= yy;
-        s = 4*min_y + 4;
-      } else {
-        n--;
-        s = 0;
-      }
-      for (dn = s; dn < 4*x; dn += 8) {
-        n -= dn;
-        if ((n <= end) && ((n%12) == 11))
-          XOR_ARRAY_BIT(mem,n/2);
-      }
-    }
-  }
-
-  /* Mark all squares of primes as composite */
-  loopend = (long) sqrtf(end) + 1;
-  for (n = 5; n < loopend; n += 2)
-    if (!IS_SET_ARRAY_BIT(mem,n/2))
-      for (k = n*n; k <= end; k += 2*n*n)
-        SET_ARRAY_BIT(mem,k/2);
-
-  /* Mark 3 as prime */
-  CLR_ARRAY_BIT(mem, 3/2);
+  mem[0] |= masktab30[1];  /* 1 is composite */
 
   return mem;
 }
-
 
 
 
@@ -483,7 +427,8 @@ int expand_primearray_index(PrimeArray* p, int index)
   if (p->curlen <= 1) {
     p->array[0] = 2;
     p->array[1] = 3;
-    p->curlen = 2;
+    p->array[2] = 5;
+    p->curlen = 3;
   }
   curprime = p->array[p->curlen-1];
   for (i = p->curlen; i <= index; i++) {
@@ -494,51 +439,47 @@ int expand_primearray_index(PrimeArray* p, int index)
 }
 
 /* p->array[p->curlen-1] will be >= value */
-int expand_primearray_value(PrimeArray* p, WTYPE value)
+int expand_primearray_value(PrimeArray* pa, WTYPE value)
 {
-#if 1
+#if 0
   /* This should be good as long as the upper bound is reasonably tight */
-  if ( ! expand_primearray_index(p, prime_count_upper(value)+1) )
+  if ( ! expand_primearray_index(pa, prime_count_upper(value)+1) )
     return 0;
 #else
-  const WTYPE* sieve;
+  const unsigned char* sieve;
   WTYPE low, high, s;
   int index;
 
   high = value + 2000;
   index = prime_count_upper(high);
-  if (p->array == 0) {
-    p->array = (WTYPE*) malloc((index+1) * sizeof(WTYPE));
-    p->curlen = 0;
-    p->maxlen = index+1;
+  if (pa->array == 0) {
+    pa->array = (WTYPE*) malloc((index+1) * sizeof(WTYPE));
+    pa->curlen = 0;
+    pa->maxlen = index+1;
   }
-  if (p->maxlen <= index) {
-    p->maxlen = index+1;
-    p->array = (WTYPE*) realloc(p->array, p->maxlen * sizeof(WTYPE));
+  if (pa->maxlen <= index) {
+    pa->maxlen = index+1;
+    pa->array = (WTYPE*) realloc(pa->array, pa->maxlen * sizeof(WTYPE));
   }
-  if (p->curlen <= 1) {
-    p->array[0] = 2;
-    p->array[1] = 3;
-    p->curlen = 2;
+  if (pa->curlen <= 1) {
+    pa->array[0] = 2;
+    pa->array[1] = 3;
+    pa->array[2] = 5;
+    pa->curlen = 3;
   }
   /* We have enough room for the primes -- now fill them in. */
-  low = p->array[p->curlen-1]+2;
+  low = pa->array[pa->curlen-1]+2;
   if (low > high)
     return 1;
   if (get_prime_cache(high, &sieve) < high) {
     croak("Couldn't generate sieve for expand_primarray_value");
     return 0;
   }
-  low  = low/2;
-  high = (high-1)/2;
-  for (s = low; s <= high; s++) {
-    if ( ! IS_SET_ARRAY_BIT(sieve, s) ) {
-      assert(p->curlen <= p->maxlen);
-      p->array[p->curlen++] = 2*s+1;
-    }
-  }
+  START_DO_FOR_EACH_SIEVE_PRIME(prime_cache_sieve, low, high)
+    pa->array[pa->curlen++] = p;
+  END_DO_FOR_EACH_SIEVE_PRIME;
 #endif
-  assert(p->array[p->curlen-1] >= value);
+  assert(pa->array[pa->curlen-1] >= value);
   return 1;
 }
 

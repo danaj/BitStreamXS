@@ -67,5 +67,6 @@ examples/bench-codes.pl
 examples/code-table.pl
 examples/imcomp.pl
 examples/integercoding.pl
+examples/prime_sieves.c
 examples/rand-geo.pl
 examples/test-ic.pl

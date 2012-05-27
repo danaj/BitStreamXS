@@ -437,6 +437,7 @@ sub primes {
   die "too many parameters to primes" unless scalar @_ <= 2;
   my $start = (@_ == 2)  ?  shift  :  2;
   my $end = shift;
+  my $sref = [];
 
   # Validate parameters
   if ( (!defined $start) || (!defined $end) ||
@@ -445,7 +446,7 @@ sub primes {
      ) {
     die "Parameters must be positive integers";
   }
-  return () if $start > $end;
+  return $sref if $start > $end;
 
   my $method = $optref->{'method'};
   if (!defined $method) {
@@ -453,22 +454,20 @@ sub primes {
     if (($start+1) >= $end) { $method = 'Trial'; }
   }
 
-  if ($method =~ /^Trial$/i) {
-    # Force trial division (wheel factorized)
-    return trial_primes($start, $end);
-  } elsif ($method =~ /^Erat\w*$/i) {
-    # Force Sieve of Eratosthenes using a temporary buffer
-    return erat_primes($start, $end);
-  } elsif ($method =~ /^Atkin\w*$/i) {
-    # Force Sieve of Atkins using a temporary buffer
-    return atkins_primes($start, $end);
+  if ($method =~ /^Trial$/i) {            # Force trial division
+    $sref = trial_primes($start, $end);
+  } elsif ($method =~ /^Erat\w*$/i) {     # Force full SoE
+    $sref = erat_primes($start, $end);
+  } elsif ($method =~ /^Simple\w*$/i) {   # Force basic SoE
+    $sref = erat_simple_primes($start, $end);
   } elsif ($method =~ /^Sieve$/i) {
     # Do a smart cached thing (typically sieving).
-    return sieve_primes($start, $end);
+    $sref = sieve_primes($start, $end);
   } else {
     die "Unknown prime method: $method";
   }
-  ();
+  #return (wantarray) ? @{$sref} : $sref;
+  return $sref;
 }
 
 
