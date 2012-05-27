@@ -277,6 +277,10 @@ long prime_count(WTYPE n)
     return 0;
   }
 
+  /* Called in void context is a simple way to generate the sieve */
+  if (GIMME_V == G_VOID)
+    return;
+
 #if 0
   count = 3;
   START_DO_FOR_EACH_SIEVE_PRIME(sieve, 7, n)
