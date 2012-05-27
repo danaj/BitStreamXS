@@ -93,23 +93,23 @@ for (my $i = 0; $i < (scalar @small_primes) - 1; $i++) {
 }
 
 # Ranges
-foreach my $method (qw/trial erat atkins sieve/) {
-  is_deeply( [primes({method=>$method}, 0, 3572)], \@small_primes, "Primes between 0 and 3572" );
-  is_deeply( [primes({method=>$method}, 2, 20)], [2,3,5,7,11,13,17,19], "Primes between 2 and 20" );
-  is_deeply( [primes({method=>$method}, 30, 70)], [31,37,41,43,47,53,59,61,67], "Primes between 30 and 70" );
-  is_deeply( [primes({method=>$method}, 30, 70)], [31,37,41,43,47,53,59,61,67], "Primes between 30 and 70" );
-  is_deeply( [primes({method=>$method}, 20, 2)], [], "Primes between 20 and 2" );
-  is_deeply( [primes({method=>$method}, 2, 2)], [2], "Primes between 2 and 2" );
-  is_deeply( [primes({method=>$method}, 3, 3)], [3], "Primes between 3 and 3" );
-  is_deeply( [primes({method=>$method}, 2010733, 2010733+148)], [2010733,2010733+148], "Primegap 21 inclusive" );
-  is_deeply( [primes({method=>$method}, 2010733+1, 2010733+148-2)], [], "Primegap 21 exclusive" );
-  is_deeply( [primes({method=>$method}, 3088, 3164)], [3089,3109,3119,3121,3137,3163], "Primes between 3088 and 3164" );
-  is_deeply( [primes({method=>$method}, 3089, 3163)], [3089,3109,3119,3121,3137,3163], "Primes between 3089 and 3163" );
-  is_deeply( [primes({method=>$method}, 3090, 3162)], [3109,3119,3121,3137], "Primes between 3090 and 3162" );
+foreach my $method (qw/trial erat simple sieve/) {
+  is_deeply( primes({method=>$method}, 0, 3572), \@small_primes, "Primes between 0 and 3572" );
+  is_deeply( primes({method=>$method}, 2, 20), [2,3,5,7,11,13,17,19], "Primes between 2 and 20" );
+  is_deeply( primes({method=>$method}, 30, 70), [31,37,41,43,47,53,59,61,67], "Primes between 30 and 70" );
+  is_deeply( primes({method=>$method}, 30, 70), [31,37,41,43,47,53,59,61,67], "Primes between 30 and 70" );
+  is_deeply( primes({method=>$method}, 20, 2), [], "Primes between 20 and 2" );
+  is_deeply( primes({method=>$method}, 2, 2), [2], "Primes ($method) between 2 and 2" );
+  is_deeply( primes({method=>$method}, 3, 3), [3], "Primes between 3 and 3" );
+  is_deeply( primes({method=>$method}, 2010733, 2010733+148), [2010733,2010733+148], "Primegap 21 inclusive" );
+  is_deeply( primes({method=>$method}, 2010733+1, 2010733+148-2), [], "Primegap 21 exclusive" );
+  is_deeply( primes({method=>$method}, 3088, 3164), [3089,3109,3119,3121,3137,3163], "Primes between 3088 and 3164" );
+  is_deeply( primes({method=>$method}, 3089, 3163), [3089,3109,3119,3121,3137,3163], "Primes between 3089 and 3163" );
+  is_deeply( primes({method=>$method}, 3090, 3162), [3109,3119,3121,3137], "Primes between 3090 and 3162" );
 }
 
 # Compare the two sieves
-is_deeply( [primes({method=>'erat'}, 0, 1000000)], [primes({method=>'atkins'}, 0, 1000000)], "Compare sieves" );
+is_deeply( primes({method=>'erat'}, 0, 1000000), primes({method=>'simpleerat'}, 0, 1000000), "Compare sieves" );
 
 # Large 32-bit gap using trial
-is_deeply( [primes({method=>'trial'}, 3842610773, 3842610773+336)], [3842610773,3842610773+336], "Primegap 34 inclusive" );
+is_deeply( primes({method=>'trial'}, 3842610773, 3842610773+336), [3842610773,3842610773+336], "Primegap 34 inclusive" );
