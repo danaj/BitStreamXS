@@ -23,10 +23,14 @@ if ($test eq 'lb') {
 }
 
 # Here's a simple test:
-#  >1 hr  time perl -E 'use Math::Primality qw/prime_count/; say prime_count(80_000_000);'
-#  15.4s  time perl -E 'use Math::Prime::XS qw/primes/; my @primes = primes(2,100_000_000); say scalar @primes;'
+#  >1 hr  time perl -E 'use Math::Primality qw/prime_count/; say prime_count(800_000_000);'
+#  16.2s  time perl -E 'use Math::Prime::XS qw/primes/; my @primes = primes(2,800_000_000); say scalar @primes;'
 #   3.9s  time perl -E 'use Math::Prime::FastSieve; my $sieve = Math::Prime::FastSieve::Sieve->new(800_000_000); say $sieve->count_sieve;'
 #   1.7s  time perl -E 'use Data::BitStream::XS qw/prime_count/; say prime_count(800_000_000);'
+#
+# 255+s   time perl -E 'use Math::Prime::XS qw/primes/; my @primes = primes(2,10_00_000_000); say scalar @primes;'
+#  64.5s  time perl -E 'use Math::Prime::FastSieve; my $sieve = Math::Prime::FastSieve::Sieve->new(10_000_000_000); say $sieve->count_sieve;'
+#  24.3s  time perl -E 'use Data::BitStream::XS qw/prime_count/; say prime_count(10_000_000_000);'
 
 
 sub gen_primexs {
