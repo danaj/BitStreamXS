@@ -819,14 +819,20 @@ put_startstop(IN Data::BitStream::XS list, IN SV* p, ...)
 
 
 
-long
+void
+prime_init(IN UV n)
+
+UV
 prime_count(IN UV n)
 
-long
+UV
 prime_count_lower(IN UV n)
 
-long
+UV
 prime_count_upper(IN UV n)
+
+UV
+prime_count_approx(IN UV n)
 
 int
 is_prime(IN UV n)
@@ -868,10 +874,10 @@ trial_primes(IN UV low, IN UV high)
   CODE:
     if (low <= high) {
       if (low >= 2) low--;   /* Make sure low gets included */
-      curprime = next_prime(low);
+      curprime = next_trial_prime(low);
       while (curprime <= high) {
         av_push(av,newSVuv(curprime));
-        curprime = next_prime(curprime);
+        curprime = next_trial_prime(curprime);
       }
     }
     RETVAL = newRV_noinc( (SV*) av );

@@ -102,51 +102,64 @@ int is_prime(WTYPE x)
   return _is_prime7(x);
 }
 
-static WTYPE next_sieve_prime(WTYPE n)
-{
-  n++;
-  if (prime_cache_size < n)
-    return 0;
-
-  START_DO_FOR_EACH_SIEVE_PRIME(prime_cache_sieve, n, prime_cache_size)
-    return p;
-  END_DO_FOR_EACH_SIEVE_PRIME;
-
-  return 0;
-}
-
-static const long prime_next_small[] = 
+static const WTYPE prime_next_small[] =
   {2,2,3,5,5,7,7,11,11,11,11,13,13,17,17,17,17,19,19,23,23,23,23,
    29,29,29,29,29,29,31,31,37,37,37,37,37,37,41,41,41,41,43,43,47,
    47,47,47,53,53,53,53,53,53,59,59,59,59,59,59,61,61,67,67,67,67,67,67,71};
 #define NPRIME_NEXT_SMALL (sizeof(prime_next_small)/sizeof(prime_next_small[0]))
-WTYPE next_prime(WTYPE x)
+
+WTYPE next_trial_prime(WTYPE n)
 {
   static const WTYPE L = 30;
-  WTYPE k0, n;
   static const WTYPE indices[] = {1, 7, 11, 13, 17, 19, 23, 29};
   static const WTYPE M = 8;
+  WTYPE d;
   int index;
 
-  if (x < NPRIME_NEXT_SMALL)
-    return prime_next_small[x];
+  if (n < NPRIME_NEXT_SMALL)
+    return prime_next_small[n];
 
-#if 0
-  n = next_sieve_prime(x);
-  if (n > 0)
-    return n;
-#endif
-
-  x++;
-  k0 = x/L;
-  index = 0;   while ((x-k0*L) > indices[index])  index++;
-  n = L*k0 + indices[index];
+  n++;
+  d = n/L;
+  index = 0;   while ((n-d*L) > indices[index])  index++;
+  n = L*d + indices[index];
   while (!_is_prime7(n)) {
-    if (++index == M) {  k0++; index = 0; }
-    n = L*k0 + indices[index];
+    if (++index == M) { d++; index = 0; }
+    n = L*d + indices[index];
   }
   return n;
 }
+
+WTYPE next_prime(WTYPE n)
+{
+  WTYPE d, m;
+
+  if (n < NPRIME_NEXT_SMALL)
+    return prime_next_small[n];
+
+  if (n <= prime_cache_size) {
+    START_DO_FOR_EACH_SIEVE_PRIME(prime_cache_sieve, n, prime_cache_size)
+      return p;
+    END_DO_FOR_EACH_SIEVE_PRIME;
+    /* Not found, so must be larger than the cache size */
+    n = prime_cache_size;
+  }
+
+  n++;
+  d = n/30;
+  m = n - d*30;
+  m += distancewheel30[m];  /* m is on a wheel location */
+  assert(masktab30[m] != 0);
+  n = d*30+m;
+  while (!_is_prime7(n)) {
+    m = nextwheel30[m];  if (m == 1) d++;
+    n = d*30+m;
+  }
+  return n;
+}
+
+
+
 
 /*
  * The pi(x) prime count functions.  prime_count(x) gives an exact number,
@@ -184,13 +197,14 @@ WTYPE next_prime(WTYPE x)
  *
  */
 
-static const long prime_count_small[] = 
+static const UV prime_count_small[] =
   {0,0,1,2,2,3,3,4,4,4,4,5,5,6,6,6,6,7,7,8,8,8,8,9,9,9,9,9,9,10,10,
    11,11,11,11,11,11,12,12,12,12,13,13,14,14,14,14,15,15,15,15,15,15,
    16,16,16,16,16,16,17,17,18,18,18,18,18,18,19};
 #define NPRIME_COUNT_SMALL  (sizeof(prime_count_small)/sizeof(prime_count_small[0]))
+
 static const float F1 = 1.0;
-long prime_count_lower(WTYPE x)
+UV prime_count_lower(WTYPE x)
 {
   float fx, flogx;
   float a = 1.80;
@@ -202,7 +216,7 @@ long prime_count_lower(WTYPE x)
   flogx = logf(x);
 
   if (x < 599)
-    return (long) (fx / (flogx-0.7));
+    return (UV) (fx / (flogx-0.7));
 
   if      (x <     2700) {  a = 0.30; }
   else if (x <     5500) {  a = 0.90; }
@@ -216,9 +230,10 @@ long prime_count_lower(WTYPE x)
   else if (x <240000000) {  a = 2.32; }
   else if (x <W_CONST(0xFFFFFFFF)) {  a = 2.32; }
 
-  return (long) ( (fx/flogx) * (F1 + F1/flogx + a/(flogx*flogx)) );
+  return (UV) ( (fx/flogx) * (F1 + F1/flogx + a/(flogx*flogx)) );
 }
-long prime_count_upper(WTYPE x)
+
+UV prime_count_upper(WTYPE x)
 {
   float fx, flogx;
   float a = 2.51;
@@ -229,8 +244,11 @@ long prime_count_upper(WTYPE x)
   fx = (float)x;
   flogx = logf(x);
 
-  if (x < 16000)
-    return (long) (fx / (flogx-1.098) + F1);
+  /* This function is unduly complicated. */
+
+  if (x < 1621)  return (UV) (fx / (flogx-1.048) + F1);
+  if (x < 5000)  return (UV) (fx / (flogx-1.071) + F1);
+  if (x < 15900) return (UV) (fx / (flogx-1.098) + F1);
 
   if      (x <    24000) {  a = 2.30; }
   else if (x <    59000) {  a = 2.48; }
@@ -255,18 +273,54 @@ long prime_count_upper(WTYPE x)
   else if (x <400000000) {  a = 2.375; }
   else if (x <510000000) {  a = 2.370; }
   else if (x <682000000) {  a = 2.367; }
-  else if (x <W_CONST(0xFFFFFFFF)) {  a = 2.262; }
+  else if (x <W_CONST(0xFFFFFFFF)) {  a = 2.362; }
 
-  return (long) ( (fx/flogx) * (F1 + F1/flogx + a/(flogx*flogx)) + F1 );
+  /*
+   * An alternate idea:
+   *  float alog[23] = {  2.30,2.30,2.30,2.30,2.30,2.30,2.30 ,2.30,2.30,2.30,
+   *                      2.47,2.49,2.53,2.50,2.49,2.49,2.456,2.44,2.40,2.370,
+   *                      2.362,2.362,2.362,2.362};
+   *  float clog[23] = {  0,   0,   0,   0,   0,   0,   0,    0,   0,   1,
+   *                      3,   1,   2,   1,   3,   2,   5,   -6,   1,   1,
+   *                      1,   1,   1,   1};
+   *  if ((int)flogx < 23) {
+   *    a = alog[(int)flogx];
+   *    return ((UV) ( (fx/flogx) * (F1 + F1/flogx + a/(flogx*flogx)) ) + clog[(int)flogx] + 0.01);
+   *  }
+   *
+   * Another thought is to use another term to help control the growth.
+   */
+
+  return (UV) ( (fx/flogx) * (F1 + F1/flogx + a/(flogx*flogx)) + F1 );
 }
 
-long prime_count(WTYPE n)
+UV prime_count_approx(WTYPE x)
+{
+  /* Placeholder for fancy algorithms, like Tomás Oliveira e Silva's:
+   *     http://trac.sagemath.org/sage_trac/ticket/8135
+   * or an approximation to Li(x) plus a delta.
+   */
+  UV lower = prime_count_lower(x);
+  UV upper = prime_count_upper(x);
+  return ((lower + upper) / 2);
+}
+
+
+
+
+void prime_init(WTYPE n)
+{
+  get_prime_cache(n, 0);   /* Sieve to n */
+}
+
+
+UV prime_count(WTYPE n)
 {
   const unsigned char* sieve;
-  WTYPE s;
-  long count, full_words;
-  static WTYPE last_fw = 0;
-  static long  last_count = 3;
+  static WTYPE last_fw    = 0;
+  static UV    last_count = 3;
+  WTYPE s, full_words;
+  UV count;
 
   if (n < NPRIME_COUNT_SMALL)
     return prime_count_small[n];
@@ -362,7 +416,8 @@ unsigned char* sieve_erat30(WTYPE end)
     return 0;
   }
 
-  for (prime = 7; (prime*prime) <= end; prime = next_prime(prime)) {
+  /* alternately can use prime = next_trial_prime(prime) */
+  for (prime = 7; (prime*prime) <= end; prime = next_prime_in_sieve(mem,prime)) {
     WTYPE step = prime * 2;
     WTYPE curr = prime * prime;
     WTYPE dcurr = curr/30;
@@ -508,7 +563,7 @@ int find_best_pair(WTYPE* basis, int basislen, WTYPE val, int adder, int* a, int
   /* Find how far in basis to look */
   while ( ((maxbasis+100) < basislen) && (basis[maxbasis+100] < val) )
     maxbasis += 100;
-  while ( ((maxbasis+1) < basislen) && (basis[maxbasis+1] < val) ) 
+  while ( ((maxbasis+1) < basislen) && (basis[maxbasis+1] < val) )
     maxbasis++;
 
   i = 0;

@@ -3,14 +3,17 @@ use strict;
 use warnings;
 
 use Test::More;
-use Data::BitStream::XS qw(is_prime next_prime primes primes);
+use Data::BitStream::XS qw(is_prime next_prime primes primes prime_count prime_count_lower prime_count_upper prime_count_approx);
 
 my $use64 = Data::BitStream::XS->maxbits > 32;
+my $extra = defined $ENV{RELEASE_TESTING} && $ENV{RELEASE_TESTING};
 
 plan tests => 6 + 19 + 3573 + (5 + 29 + 22 + 23 + 16) + 499 + 4*12+1+1
-              + ($use64 ? 5 : 0);
+              + 10*3+7
+              + ($use64 ? 5 + 9*2 : 0)
+              + ($extra ? 3 : 0);
 
-# Tests mostly taken from from Math::Primality.
+# These simple prime tests mostly taken from from Math::Primality.
 
 ok( is_prime(2), '2 is prime');
 ok(!is_prime(1), '1 is not prime');
@@ -85,6 +88,7 @@ map { ok(!is_prime($_), "Pseudoprime (base 5) $_ is not prime" ) }
   qw/781 1541 5461 5611 7813 13021 14981 15751 24211 25351 29539 38081
      40501 44801 53971 79381/;
 
+# End of tests derived from Math::Primality test ideas
 
 # Next prime
 for (my $i = 0; $i < (scalar @small_primes) - 1; $i++) {
@@ -113,3 +117,45 @@ is_deeply( primes({method=>'erat'}, 0, 1000000), primes({method=>'simpleerat'}, 
 
 # Large 32-bit gap using trial
 is_deeply( primes({method=>'trial'}, 3842610773, 3842610773+336), [3842610773,3842610773+336], "Primegap 34 inclusive" );
+
+
+# Prime counts
+my %pivals32 = (
+                  1 => 0,
+                 10 => 4,
+                100 => 25,
+               1000 => 168,
+              10000 => 1229,
+             100000 => 9592,
+            1000000 => 78498,
+           10000000 => 664579,
+          100000000 => 5761455,
+         1000000000 => 50847534,
+);
+my %pivals64 = (
+        10000000000 => 455052511,
+       100000000000 => 4118054813,
+      1000000000000 => 37607912018,
+     10000000000000 => 346065536839,
+    100000000000000 => 3204941750802,
+   1000000000000000 => 29844570422669,
+  10000000000000000 => 279238341033925,
+ 100000000000000000 => 2623557157654233,
+1000000000000000000 => 24739954287740860,
+);
+while (my($n, $pin) = each (%pivals32)) {
+  cmp_ok( prime_count_upper($n), '>=', $pin, "Pi($n) <= upper estimate" );
+  cmp_ok( prime_count_lower($n), '<=', $pin, "Pi($n) >= lower estimate" );
+  if ( ($n <= 2000000) || $extra ) {
+    is( prime_count($n), $pin, "Pi($n) = $pin" );
+  }
+  my $approx_range = abs($pin - prime_count_approx($n));
+  my $range_limit = 1100;
+  cmp_ok( $approx_range, '<=', $range_limit, "prime_count_approx($n) within $range_limit");
+}
+if ($use64) {
+  while (my($n, $pin) = each (%pivals64)) {
+    cmp_ok( prime_count_upper($n), '>=', $pin, "Pi($n) <= upper estimate" );
+    cmp_ok( prime_count_lower($n), '<=', $pin, "Pi($n) >= lower estimate" );
+  }
+}

@@ -3,6 +3,8 @@ package Data::BitStream::XS;
 # Tested on 32-bit big-endian and 64-bit little endian
 use strict;
 use warnings;
+use Carp qw/croak confess/;
+
 BEGIN {
   $Data::BitStream::XS::AUTHORITY = 'cpan:DANAJ';
 }
@@ -16,7 +18,8 @@ use base qw( Exporter );
 our @EXPORT_OK = qw(
                      code_is_supported code_is_universal
                      is_prime  next_prime  primes
-                     prime_count  prime_count_lower  prime_count_upper
+                     prime_count
+                     prime_count_lower  prime_count_upper  prime_count_approx
                    );
 
 BEGIN {
@@ -26,7 +29,7 @@ BEGIN {
     1;
   } or do {
     # We could insert a Pure Perl implementation here.
-    die "XS Code not available";
+    croak "XS Code not available";
   }
 }
 
@@ -143,9 +146,9 @@ sub put_arice {
 sub _map_sss_to_ss {
   my($start, $step, $stop, $maxstop) = @_;
   $stop = $maxstop if (!defined $stop) || ($stop > $maxstop);
-  die "invalid parameters" unless ($start >= 0) && ($start <= $maxstop);
-  die "invalid parameters" unless $step >= 0;
-  die "invalid parameters" unless $stop >= $start;
+  croak "invalid parameters" unless ($start >= 0) && ($start <= $maxstop);
+  croak "invalid parameters" unless $step >= 0;
+  croak "invalid parameters" unless $stop >= $start;
   return if $start == $stop;  # Binword
   return if $step == 0;       # Rice
 
@@ -162,25 +165,25 @@ sub _map_sss_to_ss {
 sub put_startstepstop {
   my $self = shift;
   my $p = shift;
-  die "invalid parameters" unless (ref $p eq 'ARRAY') && scalar @$p == 3;
+  croak "invalid parameters" unless (ref $p eq 'ARRAY') && scalar @$p == 3;
 
   my($start, $step, $stop) = @$p;
   return $self->put_binword($start, @_) if $start == $stop;
   return $self->put_rice($start, @_)    if $step == 0;
   my @pmap = _map_sss_to_ss($start, $step, $stop, _maxbits());
-  die "unexpected death" unless scalar @pmap >= 2;
+  confess "unexpected death" unless scalar @pmap >= 2;
   $self->put_startstop( [@pmap], @_ );
 }
 sub get_startstepstop {
   my $self = shift;
   my $p = shift;
-  die "invalid parameters" unless (ref $p eq 'ARRAY') && scalar @$p == 3;
+  croak "invalid parameters" unless (ref $p eq 'ARRAY') && scalar @$p == 3;
 
   my($start, $step, $stop) = @$p;
   return $self->get_binword($start, @_) if $start == $stop;
   return $self->get_rice($start, @_)    if $step == 0;
   my @pmap = _map_sss_to_ss($start, $step, $stop, _maxbits());
-  die "unexpected death" unless scalar @pmap >= 2;
+  confess "unexpected death" unless scalar @pmap >= 2;
   return $self->get_startstop( [@pmap], @_ );
 }
 
@@ -339,14 +342,14 @@ my %codeinfo;
 
 sub add_code {
   my $rinfo = shift;
-  die "add_code needs a hash ref" unless defined $rinfo && ref $rinfo eq 'HASH';
+  croak "add_code needs a hash ref" unless defined $rinfo && ref $rinfo eq 'HASH';
   foreach my $p (qw(package name universal params encodesub decodesub)) {
-    die "invalid registration: missing $p" unless defined $$rinfo{$p};
+    croak "invalid registration: missing $p" unless defined $$rinfo{$p};
   }
   my $name = lc $$rinfo{'name'};
   if (defined $codeinfo{$name}) {
     return 1 if $codeinfo{$name}{'package'} eq $$rinfo{'package'};
-    die "module $$rinfo{'package'} trying to reuse code name '$name' already in use by $codeinfo{$name}{'package'}";
+    croak "module $$rinfo{'package'} trying to reuse code name '$name' already in use by $codeinfo{$name}{'package'}";
   }
   $codeinfo{$name} = $rinfo;
   1;
@@ -392,14 +395,14 @@ sub code_put {
   my $param;  $param = $1 if $code =~ s/\((.+)\)$//;
   my $inforef = $codeinfo{$code};
   $inforef = _find_code($code) unless defined $inforef;
-  die "Unknown code $code" unless defined $inforef;
+  croak "Unknown code $code" unless defined $inforef;
   my $sub = $inforef->{'encodesub'};
-  die "No encoding sub for code $code!" unless defined $sub;
+  croak "No encoding sub for code $code!" unless defined $sub;
   if ($inforef->{'params'}) {
-    die "Code $code needs a parameter" unless defined $param;
+    croak "Code $code needs a parameter" unless defined $param;
     return $sub->($self, $param, @_);
   } else {
-    die "Code $code does not have parameters" if defined $param;
+    croak "Code $code does not have parameters" if defined $param;
     return $sub->($self, @_);
   }
 }
@@ -412,14 +415,14 @@ sub code_get {
   my $param;  $param = $1 if $code =~ s/\((.+)\)$//;
   my $inforef = $codeinfo{$code};
   $inforef = _find_code($code) unless defined $inforef;
-  die "Unknown code $code" unless defined $inforef;
+  croak "Unknown code $code" unless defined $inforef;
   my $sub = $inforef->{'decodesub'};
-  die "No decoding sub for code $code!" unless defined $sub;
+  croak "No decoding sub for code $code!" unless defined $sub;
   if ($inforef->{'params'}) {
-    die "Code $code needs a parameter" unless defined $param;
+    croak "Code $code needs a parameter" unless defined $param;
     return $sub->($self, $param, @_);
   } else {
-    die "Code $code does not have parameters" if defined $param;
+    croak "Code $code does not have parameters" if defined $param;
     return $sub->($self, @_);
   }
 }
@@ -433,8 +436,8 @@ sub code_get {
 
 sub primes {
   my $optref = {};  $optref = shift if ref $_[0] eq 'HASH';
-  die "no parameters to primes" unless scalar @_ > 0;
-  die "too many parameters to primes" unless scalar @_ <= 2;
+  croak "no parameters to primes" unless scalar @_ > 0;
+  croak "too many parameters to primes" unless scalar @_ <= 2;
   my $start = (@_ == 2)  ?  shift  :  2;
   my $end = shift;
   my $sref = [];
@@ -444,7 +447,7 @@ sub primes {
        #($start < 0) || ($end < 0) ||
        ($start =~ tr/0123456789//c) || ($end =~ tr/0123456789//c)
      ) {
-    die "Parameters must be positive integers";
+    croak "Parameters must be positive integers";
   }
   return $sref if $start > $end;
 
@@ -464,7 +467,7 @@ sub primes {
     # Do a smart cached thing (typically sieving).
     $sref = sieve_primes($start, $end);
   } else {
-    die "Unknown prime method: $method";
+    croak "Unknown prime method: $method";
   }
   #return (wantarray) ? @{$sref} : $sref;
   return $sref;
@@ -1125,12 +1128,14 @@ use for callers.  They are not directly related.
 
 =over 4
 
+
 =item B<is_prime($n)>
 
 Given an unsigned integer C<n>, returns 0 if the number is not prime, 1 if it
 is prime.  The algorithm currently used is trial division.  Speed is
 approximately equal to the code used by L<Math::Prime::XS> version 0.26
 (the algorithms are identical).  The algorithm may be changed.
+
 
 =item B<next_prime($n)>
 
@@ -1142,13 +1147,87 @@ any possibility of unsigned long overflow.
 
 Note that the sequence of primes starts with 2, 3, 5, 7, ...
 
+
+=item B<primes($high)>
+
 =item B<primes($low, $high)>
 
-Returns an array of all primes in the range C<low> to <high> inclusive.  The
-algorithm used is subject to change and may be dynamic depending on the range
-values and/or delta.  Currently it uses repeated calls to C<next_prime>, which
-is low memory and efficient for small ranges, but is much slower than sieving
-for larger ranges.  A change to range sieving using a bit vector is planned.
+Returns a reference to an array of all primes in the range C<low> to C<high>
+inclusive, with C<low> being 2 if not given.  The algorithm used is subject
+to change and may be dynamic depending on the range.  This will do caching
+so successive calls within the range will be faster.
+
+=item B<primes({method=>$method}, $low, $high)>
+
+An optional set of options can be given to the primes function as a hash
+reference in the first parameter.  Currently only C<method> is used, and
+possible values are:
+
+  C<Sieve>    Cached sieve (whatever is most efficient)
+  C<Erat>     Uncached efficient Sieve of Eratosthenes
+  C<Simple>   Uncached simple Sieve of Eratosthenes
+  C<Trial>    Uncached trial division.
+
+The default method is either C<Trial> or C<Sieve> depending on the range.  A
+future version will include C<Segment> as an option.
+
+=item B<prime_init($n)>
+
+Precalculates anything necessary to do fast calls for sieving within the range
+up to C<n>.  Not necessary, but very helpful if doing repeated calls to methods
+like C<is_prime>, C<prime_count>, and C<primes> with increasing C<n>.
+
+
+=item B<prime_count($n)>
+
+Returns the Prime Count function C<Pi(n)>.  The current implementation relies
+on sieving to find the primes within the interval, so will take some time and
+memory.  There are slightly faster ways to handle the sieving (e.g. maintain
+a list of counts from C<2 - j> for various C<j>, then do a segmented sieve
+between C<j> and C<n>), and for very large numbers the methods of Meissel,
+Lehmer, or Lagarias-Miller-Odlyzko-Deleglise-Rivat may be appropriate.
+
+
+=item B<prime_count_upper($n)>
+
+=item B<prime_count_lower($n)>
+
+Return bounds on the upper and lower limits, respectively, for the Prime
+Count function C<Pi(n)>.  These estimates should be very good for numbers
+under 2^32, but over that they fall back to the proven Dusart bounds of
+
+    x/logx * (1 + 1/logx + 1.80/log^2x) <= Pi(x)
+
+    x/logx * (1 + 1/logx + 2.51/log^2x) >= Pi(x)
+
+which are looser than the trial-verified values, but much, much, much
+better than simple bounds such as
+
+    x/logx <= Pi(x) <= 1.25506x/logx
+
+shown on the Wikipedia Prime-counting function page.
+
+
+=item B<prime_count_approx($n)>
+
+Returns an approximation to the Prime Count function C<Pi(n)>.  Currently this
+is just an average of the upper and lower bounds, but note that this is within
+C<9> for all C<n E<lt> 15_809> and within C<50> for all C<n E<lt> 1_763_367>.
+
+
+
+=item B<sieve_primes>
+
+=item B<erat_primes>
+
+=item B<erat_simple_primes>
+
+=item B<trial_primes>
+
+Methods for specific sieving: cached efficient sieve, efficient Sieve of
+Eratosthenes, simple Sieve of Eratosthenes, and trial division.  These may
+disappear in a future version, so use the C<method> argument to C<primes>
+instead.
 
 =back
 
