@@ -1157,6 +1157,14 @@ inclusive, with C<low> being 2 if not given.  The algorithm used is subject
 to change and may be dynamic depending on the range.  This will do caching
 so successive calls within the range will be faster.
 
+At this time, it is the fastest prime generator on CPAN to my knowledge, and
+will use less memory for sieving.  For sieving the first primes below C<10^10>
+(10 billion), it is about 2.5x faster than L<Math::Prime::FastSieve> 0.10,
+and over 10x faster than L<Math::Prime::XS>.  Substantial performance
+improvements remain possible in both speed and space.  Note also that for
+small numbers, e.g. less than C<10^6> (1 million), the difference is
+1.1x - 1.5x at most, and it really doesn't matter which you use.
+
 =item B<primes({method=>$method}, $low, $high)>
 
 An optional set of options can be given to the primes function as a hash
@@ -1170,6 +1178,7 @@ possible values are:
 
 The default method is either C<Trial> or C<Sieve> depending on the range.  A
 future version will include C<Segment> as an option.
+
 
 =item B<prime_init($n)>
 
