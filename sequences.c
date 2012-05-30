@@ -473,29 +473,26 @@ unsigned char* sieve_erat30(WTYPE end)
 
 /********************  Goldbach primearray  ********************/
 
-/* p->array[index] will be defined if we return non-zero */
-int expand_primearray_index(PrimeArray* p, int index)
+static int grow_primearray(PrimeArray* p, int index)
 {
-  int i;
-  WTYPE curprime;
   assert(p != 0);
   if (index < 8)  index = 8;
   if (p->curlen > index)
     return 1;
   if (p->array == 0) {
-    p->array = (WTYPE*) malloc((index+1) * sizeof(WTYPE));
     p->curlen = 0;
-    p->maxlen = index+1;
+    p->maxlen = index+100;
+    p->array = (WTYPE*) malloc(p->maxlen * sizeof(WTYPE));
   }
   if (p->maxlen <= index) {
-    p->maxlen = index+1024;
+    p->maxlen = index+100;
     p->array = (WTYPE*) realloc(p->array, p->maxlen * sizeof(WTYPE));
   }
   if (p->array == 0) {
-    int e = p->maxlen;
+    int ml = p->maxlen;
     p->maxlen = 0;
     p->curlen = 0;
-    croak("allocation failure in primearray: could not alloc %d entries", e);
+    croak("allocation failure in primearray: could not alloc %d entries", ml);
     return 0;
   }
   assert(p->maxlen > index);
@@ -508,47 +505,41 @@ int expand_primearray_index(PrimeArray* p, int index)
     p->array[2] = 5;
     p->curlen = 3;
   }
-  curprime = p->array[p->curlen-1];
-  for (i = p->curlen; i <= index; i++) {
+  return 1;
+}
+
+/* p->array[index] will be defined if we return non-zero */
+int expand_primearray_index(PrimeArray* pa, int index)
+{
+  int i;
+  WTYPE curprime;
+  assert(pa != 0);
+  if (grow_primearray(pa, index) == 0)
+    return 0;
+  curprime = pa->array[pa->curlen-1];
+  for (i = pa->curlen; i <= index; i++) {
     curprime = next_prime(curprime);
-    p->array[i] = curprime;
+    pa->array[i] = curprime;
   }
-  p->curlen = index;
+  pa->curlen = index;
 }
 
 /* p->array[p->curlen-1] will be >= value */
 int expand_primearray_value(PrimeArray* pa, WTYPE value)
 {
-#if 0
-  /* This should be good as long as the upper bound is reasonably tight */
-  if ( ! expand_primearray_index(pa, prime_count_upper(value)+1) )
-    return 0;
-#else
   const unsigned char* sieve;
-  WTYPE low, high, s;
-  int index;
+  WTYPE low, high;
 
+  if ( (pa->curlen > 0) && (pa->array[pa->curlen-1] >= value) )
+    return 1;
+
+  /* maximal primegap for 2^64 should be ~ 1650 */
   high = value + 2000;
-  index = prime_count_upper(high);
-  if (pa->array == 0) {
-    pa->array = (WTYPE*) malloc((index+1) * sizeof(WTYPE));
-    pa->curlen = 0;
-    pa->maxlen = index+1;
-  }
-  if (pa->maxlen <= index) {
-    pa->maxlen = index+1;
-    pa->array = (WTYPE*) realloc(pa->array, pa->maxlen * sizeof(WTYPE));
-  }
-  if (pa->curlen <= 1) {
-    pa->array[0] = 2;
-    pa->array[1] = 3;
-    pa->array[2] = 5;
-    pa->curlen = 3;
-  }
+  if (grow_primearray(pa, prime_count_upper(high) ) == 0)
+    return 0;
   /* We have enough room for the primes -- now fill them in. */
   low = pa->array[pa->curlen-1]+2;
-  if (low > high)
-    return 1;
+  assert(low < high);   /* what about overflow? */
   if (get_prime_cache(high, &sieve) < high) {
     croak("Couldn't generate sieve for expand_primarray_value");
     return 0;
@@ -556,7 +547,6 @@ int expand_primearray_value(PrimeArray* pa, WTYPE value)
   START_DO_FOR_EACH_SIEVE_PRIME(prime_cache_sieve, low, high)
     pa->array[pa->curlen++] = p;
   END_DO_FOR_EACH_SIEVE_PRIME;
-#endif
   assert(pa->array[pa->curlen-1] >= value);
   return 1;
 }
@@ -574,16 +564,31 @@ static int gamma_length(WTYPE n)
 /* adder is used to modify the stored indices.  A function would be better. */
 int find_best_pair(WTYPE* basis, int basislen, WTYPE val, int adder, int* a, int* b)
 {
-  int maxbasis = 0;
+  int maxbasis;
   int bestlen = INT_MAX;
   int i, j;
 
   assert( (basis != 0) && (a != 0) && (b != 0) && (basislen >= 1) );
   /* Find how far in basis to look */
-  while ( ((maxbasis+100) < basislen) && (basis[maxbasis+100] < val) )
-    maxbasis += 100;
-  while ( ((maxbasis+1) < basislen) && (basis[maxbasis+1] < val) )
-    maxbasis++;
+  if ((basislen > 15) && (val > basis[15])) {
+    /* Binary search for large values */
+    i = 0;
+    j = basislen-1;
+    while (i < j) {
+      int mid = (i+j)/2;
+      if (basis[mid] < val)   i = mid+1;
+      else                    j = mid;
+    }
+    maxbasis = i-1;
+  } else {
+    /* Iteration for small values */
+    maxbasis = 0;
+    while ( ((maxbasis+1) < basislen) && (basis[maxbasis+1] < val) )
+      maxbasis++;
+  }
+  assert(maxbasis < basislen);
+  assert(basis[maxbasis] <= val);
+  assert( ((maxbasis+1) == basislen) || (basis[maxbasis+1] >= val) );
 
   i = 0;
   j = maxbasis;
