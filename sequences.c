@@ -401,7 +401,7 @@ WTYPE* sieve_erat(WTYPE end)
 }
 
 
-/* Wheel 30 sieve, based on code from Terje Mathisen (1998). */
+/* Wheel 30 sieve.  Ideas from Terje Mathisen and Quesada / Van Pelt. */
 unsigned char* sieve_erat30(WTYPE end)
 {
   unsigned char* mem;
@@ -416,33 +416,52 @@ unsigned char* sieve_erat30(WTYPE end)
     return 0;
   }
 
-  /* alternately can use prime = next_trial_prime(prime) */
-  for (prime = 7; (prime*prime) <= end; prime = next_prime_in_sieve(mem,prime)) {
-    WTYPE step = prime * 2;
-    WTYPE curr = prime * prime;
-    WTYPE dcurr = curr/30;
-    WTYPE mcurr = curr - dcurr*30;
-    WTYPE i;
-    WTYPE dstep[30];
-    WTYPE nextm[30];
-
-    for (i = 1; i < 30; i += 2) {
-      WTYPE d, m;
-      WTYPE s = i;
-      do {
-        s += step;
-        d = s/30;
-        m = s - d*30;
-      } while (masktab30[m] == 0);
-      dstep[i] = d;
-      nextm[i] = m;
+  /* Shortcut to mark 7.  Just an optimization. */
+  if ( (7*7) <= end ) {
+    WTYPE d = 1;
+    while ( (d+6) < max_buf) {
+      mem[d+0] = 0x20;  mem[d+1] = 0x10;  mem[d+2] = 0x81;  mem[d+3] = 0x08;
+      mem[d+4] = 0x04;  mem[d+5] = 0x40;  mem[d+6] = 0x02;  d += 7;
     }
+    if ( d < max_buf )  mem[d++] = 0x20;
+    if ( d < max_buf )  mem[d++] = 0x10;
+    if ( d < max_buf )  mem[d++] = 0x81;
+    if ( d < max_buf )  mem[d++] = 0x08;
+    if ( d < max_buf )  mem[d++] = 0x04;
+    if ( d < max_buf )  mem[d++] = 0x40;
+    assert(d >= max_buf);
+  }
 
+  for (prime = 11; (prime*prime) <= end; prime = next_prime_in_sieve(mem,prime)) {
+    WTYPE d = (prime*prime)/30;
+    WTYPE m = (prime*prime) - d*30;
+    WTYPE dinc = (2*prime)/30;
+    WTYPE minc = (2*prime) - dinc*30;
+    WTYPE wdinc[8];
+    unsigned char wmask[8];
+    int i;
+
+    /* Find the positions of the next composites we will mark */
+    for (i = 1; i <= 8; i++) {
+      WTYPE dlast = d;
+      do {
+        d += dinc;
+        m += minc;
+        if (m >= 30) { d++; m -= 30; }
+      } while ( masktab30[m] == 0 );
+      wdinc[i-1] = d - dlast;
+      wmask[i%8] = masktab30[m];
+    }
+    d -= prime;
+    // assert(d == ((prime*prime)/30));
+    // assert(d < max_buf);
+    // assert(prime = (wdinc[0]+wdinc[1]+wdinc[2]+wdinc[3]+wdinc[4]+wdinc[5]+wdinc[6]+wdinc[7]));
+    i = 0;        /* Mark the composites */
     do {
-      mem[dcurr] |= masktab30[mcurr];
-      dcurr += dstep[mcurr];
-      mcurr = nextm[mcurr];
-    } while (dcurr < max_buf);
+      mem[d] |= wmask[i];
+      d += wdinc[i];
+      i = (i+1) & 7;
+    } while (d < max_buf);
   }
 
   mem[0] |= masktab30[1];  /* 1 is composite */
