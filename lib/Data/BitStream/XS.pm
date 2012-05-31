@@ -16,7 +16,7 @@ use base qw( Exporter );
 our @EXPORT_OK = qw(
                      code_is_supported code_is_universal
                      is_prime  next_prime  primes
-                     prime_count
+                     prime_init prime_count
                      prime_count_lower  prime_count_upper  prime_count_approx
                    );
 
