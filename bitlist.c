@@ -771,6 +771,8 @@ void put_unary (BitList *list, WTYPE value)
   list->len = len + 1;
 }
 
+
+
 WTYPE get_unary1 (BitList *list)
 {
   int pos, maxpos, wpos, bpos;
@@ -848,6 +850,8 @@ void put_unary1 (BitList *list, WTYPE value)
   list->len = len + bits;
 }
 
+
+
 WTYPE get_gamma (BitList *list)
 {
   WTYPE base, v;
@@ -884,6 +888,8 @@ void put_gamma (BitList *list, WTYPE value)
   }
 }
 
+
+
 WTYPE get_delta (BitList *list)
 {
   WTYPE base, v;
@@ -919,6 +925,8 @@ void put_delta (BitList *list, WTYPE value)
     swrite(list, base, value+1);
   }
 }
+
+
 
 WTYPE get_omega (BitList *list)
 {
@@ -976,6 +984,8 @@ void put_omega (BitList *list, WTYPE value)
 
   WRITE_BITSTACK(list);
 }
+
+
 
 #define MAXFIB 100
 static WTYPE fibv[MAXFIB] = {0};
@@ -1062,6 +1072,8 @@ void put_fib (BitList *list, WTYPE value)
   }
   WRITE_BITSTACK(list);
 }
+
+
 
 /* Generalized Fibonacci codes */
 #define MAX_FIBGEN_M 16
@@ -1199,6 +1211,8 @@ void put_fibgen (BitList *list, int m, WTYPE value)
   }
 }
 
+
+
 WTYPE get_levenstein (BitList *list)
 {
   WTYPE C, v;
@@ -1252,6 +1266,8 @@ void put_levenstein (BitList *list, WTYPE value)
   WRITE_BITSTACK(list);
 }
 
+
+
 WTYPE get_evenrodeh (BitList *list)
 {
   WTYPE v, first_bit;
@@ -1300,151 +1316,8 @@ void put_evenrodeh (BitList *list, WTYPE value)
   WRITE_BITSTACK(list);
 }
 
-#if 1
-/* Goldbach codes using a big stored list of primes.
- * Fast but really memory wasteful.
- */
-static PrimeArray prime_basis = { 0, 0, 0 };
 
-WTYPE get_goldbach_g1 (BitList *list)
-{
-  int i, j;
-  int pos = list->pos;
-  WTYPE pi, pj, value;
-  assert( pos < list->len );
 
-  i = get_gamma(list);
-  j = get_gamma(list) + i;
-  assert(j >= i);
-  if (prime_basis.curlen <= j) {
-    if (expand_primearray_index(&prime_basis, j) == 0) {
-      list->pos = pos;  /* restore position */
-      croak("code error: Goldbach G1 overflow");
-      return W_ZERO;
-    }
-    prime_basis.array[0] = 1; /* TODO: remove */
-  }
-  pi = (i == 0) ? 1 : prime_basis.array[i];
-  pj = (j == 0) ? 1 : prime_basis.array[j];
-  value = pi + pj;
-  return ((value/2)-1);
-}
-
-void put_goldbach_g1 (BitList *list, WTYPE value)
-{
-  int i, j;
-
-  value = (value+1) * 2;
-  if ((prime_basis.curlen == 0) || (prime_basis.array[prime_basis.curlen-1] < value)) {
-    if (expand_primearray_value(&prime_basis, value) == 0) {
-      croak("code error: Goldbach G1 overflow");
-      return;
-    }
-    prime_basis.array[0] = 1;
-  }
-
-  if (!find_best_pair(prime_basis.array,prime_basis.curlen, value, 0, &i, &j)) {
-    croak("value out of range");
-    return;
-  }
-  put_gamma(list, (WTYPE)i);
-  put_gamma(list, (WTYPE)j);
-}
-
-WTYPE get_goldbach_g2 (BitList *list)
-{
-  int i, j, maxindex;
-  int pos = list->pos;
-  WTYPE look, value;
-  WTYPE subtract = W_ONE;
-  assert( pos < list->len );
-
-  if ( (list->pos + 3) > list->len ) {
-    croak("read off end of stream");
-    return W_ZERO;
-  }
-  look = sreadahead(list, 3);
-  if (look == W_CONST(6)) {  (void) sread(list, 3); return W_ZERO;  }
-  if (look == W_CONST(7)) {  (void) sread(list, 3); return W_ONE;   }
-
-  if (look >= W_CONST(4)) {
-    subtract = W_ZERO;
-    (void) sread(list, 1);
-  }
-
-  i = get_gamma(list);
-  j = get_gamma(list);
-
-  maxindex = (j == 0) ?  i  :  j+(i-1)-1;
-  if (prime_basis.curlen <= maxindex) {
-    if (expand_primearray_index(&prime_basis, maxindex) == 0) {
-      list->pos = pos;  /* restore position */
-      croak("code error: Goldbach G2 overflow");
-      return W_ZERO;
-    }
-    prime_basis.array[0] = 1; /* TODO: remove */
-  }
-
-  if (j == 0) {
-    value = (i == 0) ? 1 : prime_basis.array[i];
-  } else {
-    WTYPE pi, pj;
-    i = i - 1;
-    j = j + i - 1;
-    pi = (i == 0) ? 1 : prime_basis.array[i];
-    pj = (j == 0) ? 1 : prime_basis.array[j];
-    value = pi + pj;
-  }
-  return (value - subtract);
-}
-
-void put_goldbach_g2 (BitList *list, WTYPE value)
-{
-  int i, j;
-
-  if (value == W_ZERO) { swrite(list, 3, W_CONST(6)); return; }
-  if (value == W_ONE ) { swrite(list, 3, W_CONST(7)); return; }
-
-  /* TODO: encode ~0 */
-  if (value == W_FFFF) {
-    croak("code error: Goldbach G2 overflow");
-    return;
-  }
-  value++;
-  if ((prime_basis.curlen == 0) || (prime_basis.array[prime_basis.curlen-1] < value)) {
-    if (expand_primearray_value(&prime_basis, value) == 0) {
-      croak("code error: Goldbach G2 overflow");
-      return;
-    }
-    prime_basis.array[0] = 1;
-  }
-
-  if ( (value != 2) && is_prime(value) ) {
-    /* find the index for value */
-    int spindex = 0;
-    const WTYPE* parray = prime_basis.array;
-    while (value > parray[spindex]) spindex++;
-    assert(parray[spindex] == value);
-    /* printf("g2 prime: storing %d followed by 1\n", spindex); */
-    put_gamma(list, (WTYPE)spindex);
-    swrite(list, 1, W_ONE);
-    return;
-  }
-  
-  if ((value % 2) == 1) {
-    swrite(list, 1, W_ONE);
-    value--;
-  }
-
-  if (!find_best_pair(prime_basis.array,prime_basis.curlen, value, 1, &i, &j)) {
-    croak("value out of range");
-    return;
-  }
-  put_gamma(list, (WTYPE)i);
-  put_gamma(list, (WTYPE)j);
-}
-
-#else
 /* Goldbach codes using the sieves directly.
  * Slower but memory friendly.  Needs prime_count and nth_prime to be fast.
  * Decoding especially takes a huge hit as n increases.
@@ -1550,10 +1423,6 @@ void put_goldbach_g2 (BitList *list, WTYPE value)
   put_gamma(list, (WTYPE)j);
 }
 
-#endif
-
-
-
 
 
 WTYPE get_binword (BitList *list, int k)
@@ -1564,6 +1433,8 @@ void  put_binword (BitList *list, int k, WTYPE value)
 {
   swrite(list, k, value);
 }
+
+
 
 WTYPE get_baer (BitList *list, int k)
 {
@@ -1629,6 +1500,8 @@ void  put_baer (BitList *list, int k, WTYPE value)
   if (k > 0)
     swrite(list, k, value);
 }
+
+
 
 typedef struct {
   int    maxhk;
@@ -1729,6 +1602,8 @@ void  put_boldivigna (BitList *list, int k, WTYPE value)
     swrite(list, s, x+t);
 }
 
+
+
 WTYPE get_comma (BitList *list, int k)
 {
   WTYPE comma, base, chunk;
@@ -1777,6 +1652,8 @@ void  put_comma (BitList *list, int k, WTYPE value)
   }
   WRITE_BITSTACK(list);
 }
+
+
 
 WTYPE get_block_taboo (BitList *list, int bits, WTYPE taboo)
 {
@@ -1858,6 +1735,8 @@ void  put_block_taboo (BitList *list, int bits, WTYPE taboo, WTYPE value)
   WRITE_BITSTACK(list);
 }
 
+
+
 WTYPE get_rice_sub (BitList *list, SV* self, SV* code, int k)
 {
   WTYPE v;
@@ -1884,6 +1763,8 @@ void  put_rice_sub (BitList *list, SV* self, SV* code, int k, WTYPE value)
   }
 }
 
+
+
 WTYPE get_gamma_rice (BitList *list, int k)
 {
   WTYPE v;
@@ -1907,6 +1788,8 @@ void  put_gamma_rice (BitList *list, int k, WTYPE value)
     swrite(list, k, r);
   }
 }
+
+
 
 WTYPE get_golomb_sub (BitList *list, SV* self, SV* code, WTYPE m)
 {
@@ -1967,6 +1850,8 @@ void  put_golomb_sub (BitList *list, SV* self, SV* code, WTYPE m, WTYPE value)
     swrite(list, base, r + threshold);
 }
 
+
+
 WTYPE get_gamma_golomb (BitList *list, WTYPE m)
 {
   int base = 1;
@@ -2021,6 +1906,7 @@ void  put_gamma_golomb (BitList *list, WTYPE m, WTYPE value)
 }
 
 
+
 #define QLOW  0
 #define QHIGH 7
 WTYPE get_adaptive_rice_sub (BitList *list, SV* self, SV* code, int *kp)
@@ -2062,6 +1948,7 @@ void  put_adaptive_rice_sub (BitList *list, SV* self, SV* code, int *kp, WTYPE v
   if ( (q <= QLOW ) && (k > 0            ) )  *kp -= 1;
   if ( (q >= QHIGH) && (k < BITS_PER_WORD) )  *kp += 1;
 }
+
 
 
 typedef struct {

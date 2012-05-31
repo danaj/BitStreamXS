@@ -4,6 +4,11 @@ Revision history for Perl extension Data::BitStream::XS.
   - Cleanup C code using pedantic and extra warnings.
   - Create a few primes on startup.
   - Add a very rudimentary segment siever.
+  - Add nth_prime function.
+  - Transition Goldbach codes from a big list to using the mod 30 sieve.
+    Huge memory savings, but slower (_much_ slower for huge num decode).
+    However, it's all based on the speed of prime_count and nth_prime, so
+    we can just speed those up to get back some of our performance.
 
 0.06    28 May 2012
   - Fix compile issue on some strict C platforms.

@@ -26,15 +26,6 @@ extern WTYPE* sieve_erat(WTYPE end);
 extern unsigned char* sieve_erat30(WTYPE end);
 extern int sieve_segment(unsigned char* mem, WTYPE startd, WTYPE endd);
 
-typedef struct
-{
-  int    curlen;   /* indicates array[curlen-1] is defined */
-  int    maxlen;   /* indicates array[maxlen-1] can be used */
-  WTYPE* array;
-} PrimeArray;
-
-extern int   expand_primearray_index(PrimeArray* p, int index);
-extern int   expand_primearray_value(PrimeArray* p, WTYPE value);
 extern int   find_best_pair(WTYPE* basis, int basislen, WTYPE val, int adder, int* a, int* b);
 extern int   find_best_prime_pair(WTYPE val, int adder, int* a, int* b);
 
