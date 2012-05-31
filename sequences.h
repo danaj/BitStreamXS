@@ -33,6 +33,7 @@ typedef struct
 extern int   expand_primearray_index(PrimeArray* p, int index);
 extern int   expand_primearray_value(PrimeArray* p, WTYPE value);
 extern int   find_best_pair(WTYPE* basis, int basislen, WTYPE val, int adder, int* a, int* b);
+extern int   find_best_prime_pair(WTYPE val, int adder, int* a, int* b);
 
 
 
@@ -71,8 +72,11 @@ static int is_prime_in_sieve(const unsigned char* sieve, WTYPE p) {
 
 /* Warning -- can go off the end of the sieve */
 static WTYPE next_prime_in_sieve(const unsigned char* sieve, WTYPE p) {
-  WTYPE d = p/30;
-  WTYPE m = p - d*30;
+  WTYPE d, m;
+  if (p < 7)
+    return (p < 2) ? 2 : (p < 3) ? 3 : (p < 5) ? 5 : 7;
+  d = p/30;
+  m = p - d*30;
   if (m == 29) d++;
   m = nextwheel30[m];
   while (sieve[d] & masktab30[m]) {
@@ -81,11 +85,13 @@ static WTYPE next_prime_in_sieve(const unsigned char* sieve, WTYPE p) {
   }
   return(d*30+m);
 }
-/* Returns 0 at the end */
 static WTYPE prev_prime_in_sieve(const unsigned char* sieve, WTYPE p) {
-  WTYPE d = p/30;
-  WTYPE m = p - d*30;
-  if (m <= 1) { if (d == 0) return 0;  d--; }
+  WTYPE d, m;
+  if (p <= 7)
+    return (p <= 2) ? 0 : (p <= 3) ? 2 : (p <= 5) ? 3 : 5;
+  d = p/30;
+  m = p - d*30;
+  if (m <= 1) { d--; }
   m = prevwheel30[m];
   while (sieve[d] & masktab30[m]) {
     m = prevwheel30[m];

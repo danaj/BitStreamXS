@@ -137,8 +137,8 @@ WTYPE next_prime(WTYPE n)
   if (n < NPRIME_NEXT_SMALL)
     return prime_next_small[n];
 
-  if (n <= prime_cache_size) {
-    START_DO_FOR_EACH_SIEVE_PRIME(prime_cache_sieve, n, prime_cache_size)
+  if (n < prime_cache_size) {
+    START_DO_FOR_EACH_SIEVE_PRIME(prime_cache_sieve, n+1, prime_cache_size)
       return p;
     END_DO_FOR_EACH_SIEVE_PRIME;
     /* Not found, so must be larger than the cache size */
@@ -331,10 +331,6 @@ UV prime_count(WTYPE n)
     return 0;
   }
 
-  /* Called in void context is a simple way to generate the sieve */
-  if (GIMME_V == G_VOID)
-    return;
-
 #if 0
   count = 3;
   START_DO_FOR_EACH_SIEVE_PRIME(sieve, 7, n)
@@ -522,6 +518,7 @@ int expand_primearray_index(PrimeArray* pa, int index)
     pa->array[i] = curprime;
   }
   pa->curlen = index;
+  return 1;
 }
 
 /* p->array[p->curlen-1] will be >= value */
@@ -594,6 +591,7 @@ int find_best_pair(WTYPE* basis, int basislen, WTYPE val, int adder, int* a, int
   j = maxbasis;
   while (i <= j) {
     WTYPE sum = basis[i] + basis[j];
+    //printf("sum %d/%d = %lu + %lu = %lu\n",i,j,basis[i],basis[j],sum);
     if (sum > val) {
       j--;
     } else {
@@ -611,5 +609,49 @@ int find_best_pair(WTYPE* basis, int basislen, WTYPE val, int adder, int* a, int
       i++;
     }
   }
+  //printf("returning %d/%d for %lu\n", *a, *b, val);
+  return (bestlen < INT_MAX);
+}
+
+int find_best_prime_pair(WTYPE val, int adder, int* a, int* b)
+{
+  int bestlen = INT_MAX;
+  int i, j;
+  WTYPE pi, pj;
+  const unsigned char* sieve;
+
+  assert( (a != 0) && (b != 0) );
+
+  if (get_prime_cache(val, &sieve) < val) {
+    croak("Couldn't generate sieve for find_best_prime_pair");
+    return 0;
+  }
+
+  pi = 1;
+  pj = prev_prime_in_sieve(sieve,val+1);
+  i = 0;
+  j = (val <= 2) ? 1 : prime_count(pj)-1;
+  while (i <= j) {
+    WTYPE sum = pi + pj;
+    //printf("sum %d/%d = %lu + %lu = %lu\n",i,j,pi,pj,sum);
+    if (sum > val) {
+      j--;
+      pj = (j == 0) ? 1 : prev_prime_in_sieve(sieve,pj);
+    } else {
+      if (sum == val) {
+        int p1 = i + adder;
+        int p2 = j - i + adder;
+        int glen = gamma_length(p1) + gamma_length(p2);
+        if (glen < bestlen) {
+          *a = p1;
+          *b = p2;
+          bestlen = glen;
+        }
+      }
+      i++;
+      pi = (i == 1) ? 3 : next_prime_in_sieve(sieve,pi);
+    }
+  }
+  //printf("returning %d/%d for %lu\n", *a, *b, val);
   return (bestlen < INT_MAX);
 }

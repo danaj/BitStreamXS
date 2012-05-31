@@ -1305,13 +1305,18 @@ void put_evenrodeh (BitList *list, WTYPE value)
   WRITE_BITSTACK(list);
 }
 
+/* TODO:
+ *   1. Work with prime array[0] left at 2
+ *   2. Switch to sieve versions.  Slower but no memory.
+ *      Their performance relies on prime_count and nth_prime to be fast.
+ */
 static PrimeArray prime_basis = { 0, 0, 0 };
 
 WTYPE get_goldbach_g1 (BitList *list)
 {
   int i, j;
   int pos = list->pos;
-  WTYPE value;
+  WTYPE pi, pj, value;
   assert( pos < list->len );
 
   i = get_gamma(list);
@@ -1323,9 +1328,11 @@ WTYPE get_goldbach_g1 (BitList *list)
       croak("code error: Goldbach G1 overflow");
       return W_ZERO;
     }
-    prime_basis.array[0] = 1;
+    prime_basis.array[0] = 1; /* TODO: remove */
   }
-  value = prime_basis.array[i] + prime_basis.array[j];
+  pi = (i == 0) ? 1 : prime_basis.array[i];
+  pj = (j == 0) ? 1 : prime_basis.array[j];
+  value = pi + pj;
   return ((value/2)-1);
 }
 
@@ -1334,6 +1341,7 @@ void put_goldbach_g1 (BitList *list, WTYPE value)
   int i, j;
 
   value = (value+1) * 2;
+#if 1
   if ((prime_basis.curlen == 0) || (prime_basis.array[prime_basis.curlen-1] < value)) {
     if (expand_primearray_value(&prime_basis, value) == 0) {
       croak("code error: Goldbach G1 overflow");
@@ -1346,6 +1354,12 @@ void put_goldbach_g1 (BitList *list, WTYPE value)
     croak("value out of range");
     return;
   }
+#else
+  if (!find_best_prime_pair(value, 0, &i, &j)) {
+    croak("value out of range");
+    return;
+  }
+#endif
   put_gamma(list, (WTYPE)i);
   put_gamma(list, (WTYPE)j);
 }
@@ -1381,17 +1395,20 @@ WTYPE get_goldbach_g2 (BitList *list)
       croak("code error: Goldbach G2 overflow");
       return W_ZERO;
     }
-    prime_basis.array[0] = 1;
+    prime_basis.array[0] = 1; /* TODO: remove */
   }
 
   if (j == 0) {
-    value = prime_basis.array[i] - subtract;
+    value = (i == 0) ? 1 : prime_basis.array[i];
   } else {
+    WTYPE pi, pj;
     i = i - 1;
     j = j + i - 1;
-    value = prime_basis.array[i] + prime_basis.array[j] - subtract;
+    pi = (i == 0) ? 1 : prime_basis.array[i];
+    pj = (j == 0) ? 1 : prime_basis.array[j];
+    value = pi + pj;
   }
-  return value;
+  return (value - subtract);
 }
 
 void put_goldbach_g2 (BitList *list, WTYPE value)
