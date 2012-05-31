@@ -137,8 +137,8 @@ WTYPE next_prime(WTYPE n)
   if (n < NPRIME_NEXT_SMALL)
     return prime_next_small[n];
 
-  if (n <= prime_cache_size) {
-    START_DO_FOR_EACH_SIEVE_PRIME(prime_cache_sieve, n, prime_cache_size)
+  if (n < prime_cache_size) {
+    START_DO_FOR_EACH_SIEVE_PRIME(prime_cache_sieve, n+1, prime_cache_size)
       return p;
     END_DO_FOR_EACH_SIEVE_PRIME;
     /* Not found, so must be larger than the cache size */
@@ -331,10 +331,6 @@ UV prime_count(WTYPE n)
     return 0;
   }
 
-  /* Called in void context is a simple way to generate the sieve */
-  if (GIMME_V == G_VOID)
-    return;
-
 #if 0
   count = 3;
   START_DO_FOR_EACH_SIEVE_PRIME(sieve, 7, n)
@@ -401,7 +397,7 @@ WTYPE* sieve_erat(WTYPE end)
 }
 
 
-/* Wheel 30 sieve, based on code from Terje Mathisen (1998). */
+/* Wheel 30 sieve.  Ideas from Terje Mathisen and Quesada / Van Pelt. */
 unsigned char* sieve_erat30(WTYPE end)
 {
   unsigned char* mem;
@@ -416,33 +412,52 @@ unsigned char* sieve_erat30(WTYPE end)
     return 0;
   }
 
-  /* alternately can use prime = next_trial_prime(prime) */
-  for (prime = 7; (prime*prime) <= end; prime = next_prime_in_sieve(mem,prime)) {
-    WTYPE step = prime * 2;
-    WTYPE curr = prime * prime;
-    WTYPE dcurr = curr/30;
-    WTYPE mcurr = curr - dcurr*30;
-    WTYPE i;
-    WTYPE dstep[30];
-    WTYPE nextm[30];
-
-    for (i = 1; i < 30; i += 2) {
-      WTYPE d, m;
-      WTYPE s = i;
-      do {
-        s += step;
-        d = s/30;
-        m = s - d*30;
-      } while (masktab30[m] == 0);
-      dstep[i] = d;
-      nextm[i] = m;
+  /* Shortcut to mark 7.  Just an optimization. */
+  if ( (7*7) <= end ) {
+    WTYPE d = 1;
+    while ( (d+6) < max_buf) {
+      mem[d+0] = 0x20;  mem[d+1] = 0x10;  mem[d+2] = 0x81;  mem[d+3] = 0x08;
+      mem[d+4] = 0x04;  mem[d+5] = 0x40;  mem[d+6] = 0x02;  d += 7;
     }
+    if ( d < max_buf )  mem[d++] = 0x20;
+    if ( d < max_buf )  mem[d++] = 0x10;
+    if ( d < max_buf )  mem[d++] = 0x81;
+    if ( d < max_buf )  mem[d++] = 0x08;
+    if ( d < max_buf )  mem[d++] = 0x04;
+    if ( d < max_buf )  mem[d++] = 0x40;
+    assert(d >= max_buf);
+  }
 
+  for (prime = 11; (prime*prime) <= end; prime = next_prime_in_sieve(mem,prime)) {
+    WTYPE d = (prime*prime)/30;
+    WTYPE m = (prime*prime) - d*30;
+    WTYPE dinc = (2*prime)/30;
+    WTYPE minc = (2*prime) - dinc*30;
+    WTYPE wdinc[8];
+    unsigned char wmask[8];
+    int i;
+
+    /* Find the positions of the next composites we will mark */
+    for (i = 1; i <= 8; i++) {
+      WTYPE dlast = d;
+      do {
+        d += dinc;
+        m += minc;
+        if (m >= 30) { d++; m -= 30; }
+      } while ( masktab30[m] == 0 );
+      wdinc[i-1] = d - dlast;
+      wmask[i%8] = masktab30[m];
+    }
+    d -= prime;
+    // assert(d == ((prime*prime)/30));
+    // assert(d < max_buf);
+    // assert(prime = (wdinc[0]+wdinc[1]+wdinc[2]+wdinc[3]+wdinc[4]+wdinc[5]+wdinc[6]+wdinc[7]));
+    i = 0;        /* Mark the composites */
     do {
-      mem[dcurr] |= masktab30[mcurr];
-      dcurr += dstep[mcurr];
-      mcurr = nextm[mcurr];
-    } while (dcurr < max_buf);
+      mem[d] |= wmask[i];
+      d += wdinc[i];
+      i = (i+1) & 7;
+    } while (d < max_buf);
   }
 
   mem[0] |= masktab30[1];  /* 1 is composite */
@@ -454,29 +469,26 @@ unsigned char* sieve_erat30(WTYPE end)
 
 /********************  Goldbach primearray  ********************/
 
-/* p->array[index] will be defined if we return non-zero */
-int expand_primearray_index(PrimeArray* p, int index)
+static int grow_primearray(PrimeArray* p, int index)
 {
-  int i;
-  WTYPE curprime;
   assert(p != 0);
   if (index < 8)  index = 8;
   if (p->curlen > index)
     return 1;
   if (p->array == 0) {
-    p->array = (WTYPE*) malloc((index+1) * sizeof(WTYPE));
     p->curlen = 0;
-    p->maxlen = index+1;
+    p->maxlen = index+100;
+    p->array = (WTYPE*) malloc(p->maxlen * sizeof(WTYPE));
   }
   if (p->maxlen <= index) {
-    p->maxlen = index+1024;
+    p->maxlen = index+100;
     p->array = (WTYPE*) realloc(p->array, p->maxlen * sizeof(WTYPE));
   }
   if (p->array == 0) {
-    int e = p->maxlen;
+    int ml = p->maxlen;
     p->maxlen = 0;
     p->curlen = 0;
-    croak("allocation failure in primearray: could not alloc %d entries", e);
+    croak("allocation failure in primearray: could not alloc %d entries", ml);
     return 0;
   }
   assert(p->maxlen > index);
@@ -489,47 +501,42 @@ int expand_primearray_index(PrimeArray* p, int index)
     p->array[2] = 5;
     p->curlen = 3;
   }
-  curprime = p->array[p->curlen-1];
-  for (i = p->curlen; i <= index; i++) {
+  return 1;
+}
+
+/* p->array[index] will be defined if we return non-zero */
+int expand_primearray_index(PrimeArray* pa, int index)
+{
+  int i;
+  WTYPE curprime;
+  assert(pa != 0);
+  if (grow_primearray(pa, index) == 0)
+    return 0;
+  curprime = pa->array[pa->curlen-1];
+  for (i = pa->curlen; i <= index; i++) {
     curprime = next_prime(curprime);
-    p->array[i] = curprime;
+    pa->array[i] = curprime;
   }
-  p->curlen = index;
+  pa->curlen = index;
+  return 1;
 }
 
 /* p->array[p->curlen-1] will be >= value */
 int expand_primearray_value(PrimeArray* pa, WTYPE value)
 {
-#if 0
-  /* This should be good as long as the upper bound is reasonably tight */
-  if ( ! expand_primearray_index(pa, prime_count_upper(value)+1) )
-    return 0;
-#else
   const unsigned char* sieve;
-  WTYPE low, high, s;
-  int index;
+  WTYPE low, high;
 
+  if ( (pa->curlen > 0) && (pa->array[pa->curlen-1] >= value) )
+    return 1;
+
+  /* maximal primegap for 2^64 should be ~ 1650 */
   high = value + 2000;
-  index = prime_count_upper(high);
-  if (pa->array == 0) {
-    pa->array = (WTYPE*) malloc((index+1) * sizeof(WTYPE));
-    pa->curlen = 0;
-    pa->maxlen = index+1;
-  }
-  if (pa->maxlen <= index) {
-    pa->maxlen = index+1;
-    pa->array = (WTYPE*) realloc(pa->array, pa->maxlen * sizeof(WTYPE));
-  }
-  if (pa->curlen <= 1) {
-    pa->array[0] = 2;
-    pa->array[1] = 3;
-    pa->array[2] = 5;
-    pa->curlen = 3;
-  }
+  if (grow_primearray(pa, prime_count_upper(high) ) == 0)
+    return 0;
   /* We have enough room for the primes -- now fill them in. */
   low = pa->array[pa->curlen-1]+2;
-  if (low > high)
-    return 1;
+  assert(low < high);   /* what about overflow? */
   if (get_prime_cache(high, &sieve) < high) {
     croak("Couldn't generate sieve for expand_primarray_value");
     return 0;
@@ -537,7 +544,6 @@ int expand_primearray_value(PrimeArray* pa, WTYPE value)
   START_DO_FOR_EACH_SIEVE_PRIME(prime_cache_sieve, low, high)
     pa->array[pa->curlen++] = p;
   END_DO_FOR_EACH_SIEVE_PRIME;
-#endif
   assert(pa->array[pa->curlen-1] >= value);
   return 1;
 }
@@ -555,21 +561,37 @@ static int gamma_length(WTYPE n)
 /* adder is used to modify the stored indices.  A function would be better. */
 int find_best_pair(WTYPE* basis, int basislen, WTYPE val, int adder, int* a, int* b)
 {
-  int maxbasis = 0;
+  int maxbasis;
   int bestlen = INT_MAX;
   int i, j;
 
   assert( (basis != 0) && (a != 0) && (b != 0) && (basislen >= 1) );
   /* Find how far in basis to look */
-  while ( ((maxbasis+100) < basislen) && (basis[maxbasis+100] < val) )
-    maxbasis += 100;
-  while ( ((maxbasis+1) < basislen) && (basis[maxbasis+1] < val) )
-    maxbasis++;
+  if ((basislen > 15) && (val > basis[15])) {
+    /* Binary search for large values */
+    i = 0;
+    j = basislen-1;
+    while (i < j) {
+      int mid = (i+j)/2;
+      if (basis[mid] < val)   i = mid+1;
+      else                    j = mid;
+    }
+    maxbasis = i-1;
+  } else {
+    /* Iteration for small values */
+    maxbasis = 0;
+    while ( ((maxbasis+1) < basislen) && (basis[maxbasis+1] < val) )
+      maxbasis++;
+  }
+  assert(maxbasis < basislen);
+  assert(basis[maxbasis] <= val);
+  assert( ((maxbasis+1) == basislen) || (basis[maxbasis+1] >= val) );
 
   i = 0;
   j = maxbasis;
   while (i <= j) {
     WTYPE sum = basis[i] + basis[j];
+    //printf("sum %d/%d = %lu + %lu = %lu\n",i,j,basis[i],basis[j],sum);
     if (sum > val) {
       j--;
     } else {
@@ -587,5 +609,49 @@ int find_best_pair(WTYPE* basis, int basislen, WTYPE val, int adder, int* a, int
       i++;
     }
   }
+  //printf("returning %d/%d for %lu\n", *a, *b, val);
+  return (bestlen < INT_MAX);
+}
+
+int find_best_prime_pair(WTYPE val, int adder, int* a, int* b)
+{
+  int bestlen = INT_MAX;
+  int i, j;
+  WTYPE pi, pj;
+  const unsigned char* sieve;
+
+  assert( (a != 0) && (b != 0) );
+
+  if (get_prime_cache(val, &sieve) < val) {
+    croak("Couldn't generate sieve for find_best_prime_pair");
+    return 0;
+  }
+
+  pi = 1;
+  pj = prev_prime_in_sieve(sieve,val+1);
+  i = 0;
+  j = (val <= 2) ? 1 : prime_count(pj)-1;
+  while (i <= j) {
+    WTYPE sum = pi + pj;
+    //printf("sum %d/%d = %lu + %lu = %lu\n",i,j,pi,pj,sum);
+    if (sum > val) {
+      j--;
+      pj = (j == 0) ? 1 : prev_prime_in_sieve(sieve,pj);
+    } else {
+      if (sum == val) {
+        int p1 = i + adder;
+        int p2 = j - i + adder;
+        int glen = gamma_length(p1) + gamma_length(p2);
+        if (glen < bestlen) {
+          *a = p1;
+          *b = p2;
+          bestlen = glen;
+        }
+      }
+      i++;
+      pi = (i == 1) ? 3 : next_prime_in_sieve(sieve,pi);
+    }
+  }
+  //printf("returning %d/%d for %lu\n", *a, *b, val);
   return (bestlen < INT_MAX);
 }

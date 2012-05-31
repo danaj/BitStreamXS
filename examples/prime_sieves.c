@@ -4,9 +4,9 @@
 #include <math.h>
 #include <ctype.h>
 #include <assert.h>
-//#define MAXN  1000000000      /* 10^ 9   50847534*/
-#define MAXN  10000000000   /* 10^10  455052511 */
-//#define MAXN  100000000   /* 10^ 8    5761455*/
+//#define MAXN  1000000000UL      /* 10^ 9   50847534*/
+#define MAXN  10000000000UL   /* 10^10  455052511 */
+//#define MAXN  100000000UL   /* 10^ 8    5761455*/
 
 #define WTYPE unsigned long
 #define BITS_PER_WORD (8 * sizeof(WTYPE))
@@ -96,7 +96,8 @@ static WTYPE next_prime(WTYPE x)
  *    12.5  simple version of TOS's segmented sieve
  *      ??  fast_sieve.c from Tomas Oliveria e Silva
  *
- *    24.9  sieve_erat30        (Terje)
+ *    ???   sieve_erat30        (Erat wheel 30)
+ *    24.9  sieve_erat30tm      (Terje wheel 30)
  *    46.4  sieve_eratek        (Sorensen)
  *    48.5  sieve_erat23        (simple erat mod)
  *    53.9  sieve_atkin         (Praxis)
@@ -243,8 +244,6 @@ static WTYPE* sieve_base23(WTYPE end)
 
 
 
-/* Proper wheel 32 sieve based on code from Terje Mathisen (1998) */
-
 static unsigned char mask_tab[30] = {
     0, 1, 0, 0, 0, 0, 0, 2, 0, 0, 0, 4, 0, 8, 0,
     0, 0, 16, 0, 32, 0, 0, 0, 64, 0, 0, 0, 0, 0, 128 };
@@ -252,7 +251,9 @@ static unsigned char mask_tab[30] = {
 #define IS_SIEVE30_SET(n) \
    (mem[n/30] & mask_tab[n%30])
 
-static unsigned char* sieve_erat30(WTYPE end)
+/* Proper wheel 32 sieve based on code from Terje Mathisen (1998) */
+
+static unsigned char* sieve_erat30tm(WTYPE end)
 {
   unsigned char* mem;
   size_t max_buf, buffer_words;
@@ -263,7 +264,7 @@ static unsigned char* sieve_erat30(WTYPE end)
   mem = (unsigned char*) calloc( buffer_words, sizeof(WTYPE) );
   assert(mem != 0);
 
-  for (prime = 7; (prime*prime) <= end; prime = next_prime(prime)) {
+  for (prime =  7; (prime*prime) <= end; prime = next_prime(prime)) {
     WTYPE step = prime * 2;
     WTYPE curr = prime * prime;
     WTYPE dcurr = curr/30;
@@ -290,6 +291,79 @@ static unsigned char* sieve_erat30(WTYPE end)
       dcurr += dstep[mcurr];
       mcurr = nextm[mcurr];
     } while (dcurr < max_buf);
+  }
+
+  mem[0] |= mask_tab[1];  /* 1 is composite */
+
+  return mem;
+}
+
+/* My wheel 30 sieve */
+
+static unsigned char* sieve_erat30(WTYPE end)
+{
+  unsigned char* mem;
+  size_t max_buf, buffer_words;
+  WTYPE prime;
+
+  max_buf = (end + 29) / 30;
+  buffer_words = (end + (30*sizeof(WTYPE)) - 1) / (30*sizeof(WTYPE));
+  mem = (unsigned char*) calloc( buffer_words, sizeof(WTYPE) );
+  assert(mem != 0);
+
+  /* Shortcut to mark 7.  Purely an optimization. */
+  /* However, we could tweak a little by doing:
+   *    - use malloc instead of calloc
+   *    - use a loop of memcpy(len*2) to speed up vs. the 7-byte loop below
+   *    - memset 0 between max_buf and buffer_words
+   */
+#if 0
+  if ( (7*7) <= end ) {
+    WTYPE d = 1;
+    while ( (d+6) < max_buf) {
+      mem[d+0] = 0x20;  mem[d+1] = 0x10;  mem[d+2] = 0x81;  mem[d+3] = 0x08;
+      mem[d+4] = 0x04;  mem[d+5] = 0x40;  mem[d+6] = 0x02;  d += 7;
+    }
+    if ( d < max_buf )  mem[d++] = 0x20;
+    if ( d < max_buf )  mem[d++] = 0x10;
+    if ( d < max_buf )  mem[d++] = 0x81;
+    if ( d < max_buf )  mem[d++] = 0x08;
+    if ( d < max_buf )  mem[d++] = 0x04;
+    if ( d < max_buf )  mem[d++] = 0x40;
+    //assert(d >= max_buf);
+  }
+#endif
+  for (prime = 7; (prime*prime) <= end; prime = next_prime(prime)) {
+    WTYPE d = (prime*prime)/30;
+    WTYPE m = (prime*prime) - d*30;
+    WTYPE dinc = (2*prime)/30;
+    WTYPE minc = (2*prime) - dinc*30;
+    WTYPE wdinc[8];
+    unsigned char wmask[8];
+    int i;
+
+    /* Find the positions of the next composites we will mark */
+    for (i = 1; i <= 8; i++) {
+      WTYPE dlast = d;
+      do {
+        d += dinc;
+        m += minc;
+        if (m >= 30) { d++; m -= 30; }
+      } while ( mask_tab[m] == 0 );
+      wdinc[i-1] = d - dlast;
+      wmask[i%8] = mask_tab[m];
+    }
+    d -= prime;
+    //assert(d == ((prime*prime)/30));
+    //assert(d < max_buf);
+    //assert(prime = (wdinc[0]+wdinc[1]+wdinc[2]+wdinc[3]+wdinc[4]+wdinc[5]+wdinc[6]+wdinc[7]));
+    /* Mark them */
+    i = 0;
+    do {
+      mem[d] |= wmask[i];
+      d += wdinc[i];
+      i = (i+1) & 7;
+    } while (d < max_buf);
   }
 
   mem[0] |= mask_tab[1];  /* 1 is composite */
@@ -554,12 +628,12 @@ int main(void)
   int count = 1;
 
 #if 0
-  //WTYPE* sieve = sieve_erat(MAXN);
+  WTYPE* sieve = sieve_erat(MAXN);
   //WTYPE* sieve = sieve_eratek(MAXN);
   //WTYPE* sieve = sieve_base23(MAXN);
   //WTYPE* sieve = sieve_atkin_naive(MAXN);
   //WTYPE* sieve = sieve_atkin_2(MAXN);
-  WTYPE* sieve = sieve_atkin(MAXN);
+  //WTYPE* sieve = sieve_atkin(MAXN);
 
   full_words = NWORDS(high) - 1;
   s = 0;
@@ -578,10 +652,9 @@ int main(void)
     if ( ! IS_SET_ARRAY_BIT(sieve, s) )
       count++;
 #else
+  //unsigned char* sieve = sieve_erat30tm(MAXN);
   unsigned char* sieve = sieve_erat30(MAXN);
   count = 3;  /* 2, 3, 5 */
-  //full_words = 0;
-#if 1
   full_words = ((MAXN-1)/30) / sizeof(WTYPE);
   WTYPE* wsieve = (WTYPE*) sieve;
   for (s = 0; s < full_words; s++) {
@@ -591,7 +664,6 @@ int main(void)
       count++;
     }
   }
-#endif
   /* Count primes in the last (partial) word */
   {
     static const WTYPE wheel[] = {1, 7, 11, 13, 17, 19, 23, 29};
