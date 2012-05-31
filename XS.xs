@@ -839,6 +839,9 @@ prime_count_upper(IN UV n)
 UV
 prime_count_approx(IN UV n)
 
+UV
+nth_prime(IN UV n)
+
 int
 is_prime(IN UV n)
 

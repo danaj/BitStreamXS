@@ -19,6 +19,8 @@ extern WTYPE prime_count_upper(WTYPE x);
 extern WTYPE prime_count_approx(WTYPE x);
 extern WTYPE prime_count(WTYPE x);
 
+extern WTYPE nth_prime(WTYPE n);
+
 extern void  prime_init(WTYPE x);
 extern WTYPE* sieve_erat(WTYPE end);
 extern unsigned char* sieve_erat30(WTYPE end);

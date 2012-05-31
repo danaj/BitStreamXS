@@ -18,6 +18,7 @@ our @EXPORT_OK = qw(
                      is_prime  next_prime  primes
                      prime_init prime_count
                      prime_count_lower  prime_count_upper  prime_count_approx
+                     nth_prime
                    );
 
 BEGIN {

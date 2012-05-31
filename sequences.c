@@ -11,6 +11,27 @@
 
 /********************  primes  ********************/
 
+static WTYPE count_zero_bits(const unsigned char* m, WTYPE nbytes)
+{
+  WTYPE count = 0;
+  assert( (nbytes % sizeof(WTYPE)) == 0 );
+  assert( (((WTYPE)m) % sizeof(WTYPE)) == 0);
+  {
+    const WTYPE* wm = (const WTYPE*) m;
+    WTYPE nwords = nbytes / sizeof(WTYPE);
+    while (nwords-- > 0) {
+      /* Count 0 bits using Wegner/Lehmer/Kernighan method. */
+      WTYPE word = ~ *wm++;
+      while (word) {
+        word &= word-1;
+        count++;
+      }
+    }
+  }
+  return count;
+}
+
+
 static unsigned char* prime_cache_sieve = 0;
 static WTYPE  prime_cache_size = 0;
 
@@ -310,6 +331,62 @@ UV prime_count_approx(WTYPE x)
   return ((lower + upper) / 2);
 }
 
+static const WTYPE primes_small[] =
+  {0,2,3,5,7,11,13,17,19,23,29,31,37,41,43,47,53,59,61,67,71};
+#define NPRIMES_SMALL (sizeof(primes_small)/sizeof(primes_small[0]))
+
+/* The nth prime will be less than this number */
+static UV nth_prime_upper(WTYPE n)
+{
+  float fn = (float) n;
+  if (n < NPRIMES_SMALL)
+    return primes_small[n]+1;
+  return (UV) (fn * logf(fn)  +  fn * logf(logf(fn)) + 1.0);
+}
+/* The nth prime will be more than this number */
+static UV nth_prime_lower(WTYPE n)
+{
+  float fn = (float) n;
+  if (n < NPRIMES_SMALL)
+    return (n==0) ? 0 : primes_small[n]-1;
+  return (UV) (fn * logf(fn)  +  fn * logf(logf(fn)) - fn);
+}
+
+UV nth_prime(WTYPE n)
+{
+  const unsigned char* sieve;
+  UV upper_limit, start, count, s, nwords_left;
+
+  if (n < NPRIMES_SMALL)
+    return primes_small[n];
+
+  upper_limit = nth_prime_upper(n);
+  /* The nth prime is guaranteed to be within this range */
+  if (get_prime_cache(upper_limit, &sieve) < upper_limit) {
+    croak("Couldn't generate sieve for nth(%lu) [sieve to %lu]", (unsigned long)n, (unsigned long)upper_limit);
+    return 0;
+  }
+
+  count = 3;
+  start = 7;
+  s = 0;
+  nwords_left = (n-count) / (8*sizeof(WTYPE));
+  while ( nwords_left > 0 ) {
+    /* There is at minimum one word we can count (and probably many more) */
+    count += count_zero_bits(sieve+s*sizeof(WTYPE), nwords_left*sizeof(WTYPE));
+    assert(count <= n);
+    s += nwords_left;
+    nwords_left = (n-count) / (8*sizeof(WTYPE));
+  }
+  if (s > 0)
+    start = s * sizeof(WTYPE) * 30;
+
+  START_DO_FOR_EACH_SIEVE_PRIME(sieve, start, upper_limit)
+    if (++count == n)  return p;
+  END_DO_FOR_EACH_SIEVE_PRIME;
+  croak("nth_prime failed for %lu, not found in range %lu - %lu", (unsigned long)n, (unsigned long) start, (unsigned long)upper_limit);
+  return 0;
+}
 
 
 
@@ -361,17 +438,7 @@ UV prime_count(WTYPE n)
     count = last_count;
   }
 
-  /* Count 0 bits using Wegner/Lehmer/Kernighan method. */
-  {
-    const WTYPE* wsieve = (const WTYPE*) sieve;
-    for (; s < full_words; s++) {
-      WTYPE word = ~wsieve[s];
-      while (word) {
-        word &= word-1;
-        count++;
-      }
-    }
-  }
+  count += count_zero_bits(sieve+s*sizeof(WTYPE), (full_words-s)*sizeof(WTYPE));
 
   last_fw    = full_words;
   last_count = count;
@@ -527,7 +594,7 @@ int sieve_segment(unsigned char* mem, WTYPE startd, WTYPE endd)
   }
   END_DO_FOR_EACH_SIEVE_PRIME;
   //printf("\nsegment sieve done.\n");
-  
+
   return 1;
 }
 
@@ -657,7 +724,6 @@ int find_best_pair(WTYPE* basis, int basislen, WTYPE val, int adder, int* a, int
   j = maxbasis;
   while (i <= j) {
     WTYPE sum = basis[i] + basis[j];
-    //printf("sum %d/%d = %lu + %lu = %lu\n",i,j,basis[i],basis[j],sum);
     if (sum > val) {
       j--;
     } else {
@@ -675,7 +741,6 @@ int find_best_pair(WTYPE* basis, int basislen, WTYPE val, int adder, int* a, int
       i++;
     }
   }
-  //printf("returning %d/%d for %lu\n", *a, *b, val);
   return (bestlen < INT_MAX);
 }
 
@@ -699,7 +764,6 @@ int find_best_prime_pair(WTYPE val, int adder, int* a, int* b)
   j = (val <= 2) ? 1 : prime_count(pj)-1;
   while (i <= j) {
     WTYPE sum = pi + pj;
-    //printf("sum %d/%d = %lu + %lu = %lu\n",i,j,pi,pj,sum);
     if (sum > val) {
       j--;
       pj = (j == 0) ? 1 : prev_prime_in_sieve(sieve,pj);
@@ -718,6 +782,5 @@ int find_best_prime_pair(WTYPE val, int adder, int* a, int* b)
       pi = (i == 1) ? 3 : next_prime_in_sieve(sieve,pi);
     }
   }
-  //printf("returning %d/%d for %lu\n", *a, *b, val);
   return (bestlen < INT_MAX);
 }

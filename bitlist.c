@@ -1300,10 +1300,9 @@ void put_evenrodeh (BitList *list, WTYPE value)
   WRITE_BITSTACK(list);
 }
 
-/* TODO:
- *   1. Work with prime array[0] left at 2
- *   2. Switch to sieve versions.  Slower but no memory.
- *      Their performance relies on prime_count and nth_prime to be fast.
+#if 1
+/* Goldbach codes using a big stored list of primes.
+ * Fast but really memory wasteful.
  */
 static PrimeArray prime_basis = { 0, 0, 0 };
 
@@ -1336,7 +1335,6 @@ void put_goldbach_g1 (BitList *list, WTYPE value)
   int i, j;
 
   value = (value+1) * 2;
-#if 1
   if ((prime_basis.curlen == 0) || (prime_basis.array[prime_basis.curlen-1] < value)) {
     if (expand_primearray_value(&prime_basis, value) == 0) {
       croak("code error: Goldbach G1 overflow");
@@ -1349,12 +1347,6 @@ void put_goldbach_g1 (BitList *list, WTYPE value)
     croak("value out of range");
     return;
   }
-#else
-  if (!find_best_prime_pair(value, 0, &i, &j)) {
-    croak("value out of range");
-    return;
-  }
-#endif
   put_gamma(list, (WTYPE)i);
   put_gamma(list, (WTYPE)j);
 }
@@ -1451,6 +1443,118 @@ void put_goldbach_g2 (BitList *list, WTYPE value)
   put_gamma(list, (WTYPE)i);
   put_gamma(list, (WTYPE)j);
 }
+
+#else
+/* Goldbach codes using the sieves directly.
+ * Slower but memory friendly.  Needs prime_count and nth_prime to be fast.
+ * Decoding especially takes a huge hit as n increases.
+ * Encoding 1B takes 388MB with number list, 32MB with sieve.
+ */
+WTYPE get_goldbach_g1 (BitList *list)
+{
+  int i, j;
+  int pos = list->pos;
+  WTYPE pi, pj, value;
+  assert( pos < list->len );
+
+  i = get_gamma(list);
+  j = get_gamma(list) + i;
+  pi = (i == 0) ? 1 : nth_prime(i+1);
+  pj = (j == 0) ? 1 : nth_prime(j+1);
+  value = pi + pj;
+  return ((value/2)-1);
+}
+
+void put_goldbach_g1 (BitList *list, WTYPE value)
+{
+  int i, j;
+
+  value = (value+1) * 2;
+  if (!find_best_prime_pair(value, 0, &i, &j)) {
+    croak("value out of range");
+    return;
+  }
+  put_gamma(list, (WTYPE)i);
+  put_gamma(list, (WTYPE)j);
+}
+
+WTYPE get_goldbach_g2 (BitList *list)
+{
+  int i, j;
+  int pos = list->pos;
+  WTYPE look, value;
+  WTYPE subtract = W_ONE;
+  assert( pos < list->len );
+
+  if ( (list->pos + 3) > list->len ) {
+    croak("read off end of stream");
+    return W_ZERO;
+  }
+  look = sreadahead(list, 3);
+  if (look == W_CONST(6)) {  (void) sread(list, 3); return W_ZERO;  }
+  if (look == W_CONST(7)) {  (void) sread(list, 3); return W_ONE;   }
+
+  if (look >= W_CONST(4)) {
+    subtract = W_ZERO;
+    (void) sread(list, 1);
+  }
+
+  i = get_gamma(list);
+  j = get_gamma(list);
+
+  if (j == 0) {
+    value = (i == 0) ? 1 : nth_prime(i+1);
+  } else {
+    WTYPE pi, pj;
+    i = i - 1;
+    j = j + i - 1;
+    pi = (i == 0) ? 1 : nth_prime(i+1);
+    pj = (j == 0) ? 1 : nth_prime(j+1);
+    value = pi + pj;
+  }
+  return (value - subtract);
+}
+
+void put_goldbach_g2 (BitList *list, WTYPE value)
+{
+  int i, j;
+
+  if (value == W_ZERO) { swrite(list, 3, W_CONST(6)); return; }
+  if (value == W_ONE ) { swrite(list, 3, W_CONST(7)); return; }
+
+  /* TODO: encode ~0 */
+  if (value == W_FFFF) {
+    croak("code error: Goldbach G2 overflow");
+    return;
+  }
+  value++;
+
+  if ( (value != 2) && is_prime(value) ) {
+    int spindex = prime_count(value)-1;
+    /* printf("g2 prime: storing %d followed by 1\n", spindex); */
+    put_gamma(list, (WTYPE)spindex);
+    swrite(list, 1, W_ONE);
+    return;
+  }
+  
+  if ((value % 2) == 1) {
+    swrite(list, 1, W_ONE);
+    value--;
+  }
+
+  if (!find_best_prime_pair(value, 1, &i, &j)) {
+    croak("value out of range");
+    return;
+  }
+  put_gamma(list, (WTYPE)i);
+  put_gamma(list, (WTYPE)j);
+}
+
+#endif
+
+
+
+
 
 WTYPE get_binword (BitList *list, int k)
 {
