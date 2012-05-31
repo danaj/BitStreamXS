@@ -3,6 +3,7 @@
 #include <string.h>
 #include <assert.h>
 #include <limits.h>
+#include <math.h>
 
 /********************  functions to support sequences  ********************/
 
@@ -11,7 +12,7 @@
 /********************  primes  ********************/
 
 static unsigned char* prime_cache_sieve = 0;
-static WTYPE  prime_cache_size  = 0;
+static WTYPE  prime_cache_size = 0;
 
 /* Get the maximum sieved value of the cached prime sieve. */
 WTYPE get_prime_cache_size(void)
@@ -83,23 +84,27 @@ static int _is_prime7(WTYPE x)
   return 1;
 }
 
-int is_prime(WTYPE x)
+int is_prime(WTYPE n)
 {
-  WTYPE q, i;
+  WTYPE d, m;
+  unsigned char mtab;
 
-  if (x <= 31)
-    return ((SMALL_PRIMES_MASK >> x) & 1);
+  if (n <= 31)
+    return ((SMALL_PRIMES_MASK >> n) & 1);
 
-  /* Quick determination if the number is a multiple of 2, 3, or 5 */
-  if ( (MOD235_MASK >> (x%30)) & 1 )
+  d = n/30;
+  m = n - d*30;
+  mtab = masktab30[m];  /* Bitmask in mod30 wheel */
+
+  /* Return 0 if not a multiple of 2, 3, or 5 */
+  if (mtab == 0)
     return 0;
 
-  /* If we've sieved this far, look at the sieve */
-  if (prime_cache_size >= x)
-    return is_prime_in_sieve(prime_cache_sieve, x);
+  if (n <= prime_cache_size)
+    return ((prime_cache_sieve[d] & mtab) == 0);
 
   /* Trial division, mod 30 */
-  return _is_prime7(x);
+  return _is_prime7(n);
 }
 
 static const WTYPE prime_next_small[] =
@@ -310,6 +315,15 @@ UV prime_count_approx(WTYPE x)
 
 void prime_init(WTYPE n)
 {
+  if ( (n == 0) && (prime_cache_sieve == 0) ) {
+    /* On init, make a few primes */
+    size_t initial_primes_to = 30 * (1024-8);
+    prime_cache_sieve = sieve_erat30(initial_primes_to);
+    if (prime_cache_sieve != 0)
+      prime_cache_size = initial_primes_to;
+    return;
+  }
+
   get_prime_cache(n, 0);   /* Sieve to n */
 }
 
@@ -320,7 +334,7 @@ UV prime_count(WTYPE n)
   static WTYPE last_fw    = 0;
   static UV    last_count = 3;
   WTYPE s, full_words;
-  UV count;
+  UV count = 3;
 
   if (n < NPRIME_COUNT_SMALL)
     return prime_count_small[n];
@@ -332,17 +346,16 @@ UV prime_count(WTYPE n)
   }
 
 #if 0
-  count = 3;
+  /* The really simple way -- walk the sieve */
   START_DO_FOR_EACH_SIEVE_PRIME(sieve, 7, n)
     count++;
   END_DO_FOR_EACH_SIEVE_PRIME;
 #else
-  count = 3;
   full_words = n / (30*sizeof(WTYPE));
   s = 0;
 
   /* Start from last word position if we can.  This is a big speedup when
-  *      calling prime_count many times with successively larger numbers. */
+   * calling prime_count many times with successively larger numbers. */
   if (full_words >= last_fw) {
     s = last_fw;
     count = last_count;
@@ -350,7 +363,7 @@ UV prime_count(WTYPE n)
 
   /* Count 0 bits using Wegner/Lehmer/Kernighan method. */
   {
-    WTYPE* wsieve = (WTYPE*) sieve;
+    const WTYPE* wsieve = (const WTYPE*) sieve;
     for (; s < full_words; s++) {
       WTYPE word = ~wsieve[s];
       while (word) {
@@ -427,7 +440,6 @@ unsigned char* sieve_erat30(WTYPE end)
     if ( d < max_buf )  mem[d++] = 0x40;
     assert(d >= max_buf);
   }
-
   for (prime = 11; (prime*prime) <= end; prime = next_prime_in_sieve(mem,prime)) {
     WTYPE d = (prime*prime)/30;
     WTYPE m = (prime*prime) - d*30;
@@ -449,9 +461,11 @@ unsigned char* sieve_erat30(WTYPE end)
       wmask[i%8] = masktab30[m];
     }
     d -= prime;
-    // assert(d == ((prime*prime)/30));
-    // assert(d < max_buf);
-    // assert(prime = (wdinc[0]+wdinc[1]+wdinc[2]+wdinc[3]+wdinc[4]+wdinc[5]+wdinc[6]+wdinc[7]));
+#if 0
+    assert(d == ((prime*prime)/30));
+    assert(d < max_buf);
+    assert(prime = (wdinc[0]+wdinc[1]+wdinc[2]+wdinc[3]+wdinc[4]+wdinc[5]+wdinc[6]+wdinc[7]));
+#endif
     i = 0;        /* Mark the composites */
     do {
       mem[d] |= wmask[i];
@@ -463,6 +477,58 @@ unsigned char* sieve_erat30(WTYPE end)
   mem[0] |= masktab30[1];  /* 1 is composite */
 
   return mem;
+}
+
+
+
+int sieve_segment(unsigned char* mem, WTYPE startd, WTYPE endd)
+{
+  const unsigned char* sieve;
+  WTYPE limit;
+  WTYPE pcsize;
+  WTYPE startp = 30*startd;
+  WTYPE endp = 30*endd+29;
+  WTYPE ranged = endd - startd + 1;
+
+  assert(mem != 0);
+  assert(endd >= startd);
+  memset(mem, 0, ranged);
+
+  limit = sqrt( (double) endp ) + 1;
+  //printf("segment sieve from %llu to %llu (aux sieve to %llu)\n", startp, endp, limit);
+  pcsize = get_prime_cache(limit, &sieve);
+  if (pcsize < limit) {
+    croak("Couldn't generate small sieve for segment sieve");
+    return 0;
+  }
+
+  START_DO_FOR_EACH_SIEVE_PRIME(sieve, 7, pcsize)
+  {
+    //printf("   sieving %llu ...", p);
+    /* p increments from 7 to at least sqrt(endp) */
+    WTYPE p2 = p*p;
+    //printf(" square %llu", p2);
+    if (p2 >= endp)  break;
+    if (p2 < startp) {
+      p2 = (startp / p) * p;
+      if (p2 < startp)  p2 += p;
+      //printf(" bumped to %llu", p2);
+    }
+    /* Sieve from startd to endd starting at p2, stepping p */
+    /* TODO: This is a very basic loop.  Apply smarts. */
+    while (p2 < endp) {
+      while (masktab30[p2%30] == 0) { p2 += p; }
+      //printf(" . %llu", p2);
+      if (p2 < endp)
+        mem[(p2 - startp)/30] |= masktab30[p2%30];
+      p2 += p;
+    }
+    //printf("\n");
+  }
+  END_DO_FOR_EACH_SIEVE_PRIME;
+  //printf("\nsegment sieve done.\n");
+  
+  return 1;
 }
 
 

@@ -1,4 +1,4 @@
-Data::BitStream::XS version 0.06
+Data::BitStream::XS version 0.07
 ================================
 
 A class providing read/write access to bit streams, implemented in XS for

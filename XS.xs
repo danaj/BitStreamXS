@@ -198,8 +198,6 @@ pos(IN Data::BitStream::XS list)
 
 SV *
 fheader(IN Data::BitStream::XS list)
-  PREINIT:
-    char* buf;
   CODE:
     if (list->file_header == 0) {
       XSRETURN_UNDEF;
@@ -266,7 +264,7 @@ write_close(IN Data::BitStream::XS list)
 UV
 read(IN Data::BitStream::XS list, IN int bits, IN const char* flags = 0)
   PREINIT:
-    int readahead;
+    int do_readahead;
   CODE:
     if (list->is_writing) {
       croak("read while writing");
@@ -276,8 +274,8 @@ read(IN Data::BitStream::XS list, IN int bits, IN const char* flags = 0)
       croak("invalid parameters: bits %d must be 1-%d",bits,(int)BITS_PER_WORD);
       XSRETURN_UNDEF;
     }
-    readahead = (flags != 0) && (strcmp(flags, "readahead") == 0);
-    if (readahead) {
+    do_readahead = (flags != 0) && (strcmp(flags, "readahead") == 0);
+    if (do_readahead) {
       if (list->pos >= list->len)
         XSRETURN_UNDEF;
       RETVAL = sreadahead(list, bits);
@@ -884,6 +882,63 @@ trial_primes(IN UV low, IN UV high)
   OUTPUT:
     RETVAL
 
+#define SEGMENT_SIZE (32768*1)  /* 32k = 983040 numbers at a time */
+
+SV*
+segment_primes(IN UV low, IN UV high)
+  PREINIT:
+    AV* av = newAV();
+    unsigned char* sieve;
+  CODE:
+#if 0
+    if (low <= high) {
+      WTYPE startd = low/30;
+      WTYPE endd = high/30;
+      WTYPE ranged = endd - startd + 1;
+      /* TODO, run in reasonable size segments */
+      sieve = (unsigned char*) malloc( ranged );
+      (void) sieve_segment(sieve, startd, endd);
+      if ((low <= 2) && (high >= 2)) { av_push(av, newSVuv( 2 )); }
+      if ((low <= 3) && (high >= 3)) { av_push(av, newSVuv( 3 )); }
+      if ((low <= 5) && (high >= 5)) { av_push(av, newSVuv( 5 )); }
+      START_DO_FOR_EACH_SIEVE_PRIME( sieve, 1, high-30*startd ) {
+         WTYPE n = startd*30 + p;
+         if (n >= low) {
+           av_push(av,newSVuv( n ));
+         }
+      } END_DO_FOR_EACH_SIEVE_PRIME
+    }
+    RETVAL = newRV_noinc( (SV*) av );
+#else
+    if ((low <= 2) && (high >= 2)) { av_push(av, newSVuv( 2 )); }
+    if ((low <= 3) && (high >= 3)) { av_push(av, newSVuv( 3 )); }
+    if ((low <= 5) && (high >= 5)) { av_push(av, newSVuv( 5 )); }
+    if (low < 7)  low = 7;
+    if (low <= high) {
+      sieve = (unsigned char*) malloc( SEGMENT_SIZE );
+      while (low <= high) {
+        WTYPE seghigh = ((high/30 - low/30) < SEGMENT_SIZE)  ?  high  :  ( (low/30 + SEGMENT_SIZE-1)*30 );
+        WTYPE startd = low/30;
+        WTYPE endd = seghigh/30;
+        WTYPE ranged = endd - startd + 1;
+        assert(endd >= startd);
+        assert(ranged <= SEGMENT_SIZE);
+        //printf("sieve segment from %llu to %llu\n", startd*30+1, endd*30+29);
+        (void) sieve_segment(sieve, startd, endd);
+        START_DO_FOR_EACH_SIEVE_PRIME( sieve, 1, seghigh-30*startd ) {
+           WTYPE n = startd*30 + p;
+           if (n >= low) {
+             av_push(av,newSVuv( n ));
+           }
+        } END_DO_FOR_EACH_SIEVE_PRIME
+        low += ranged*30;
+      }
+    }
+    free(sieve);
+    RETVAL = newRV_noinc( (SV*) av );
+#endif
+  OUTPUT:
+    RETVAL
 
 SV*
 erat_primes(IN UV low, IN UV high)

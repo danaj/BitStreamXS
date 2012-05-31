@@ -60,6 +60,7 @@ extern void      put_string     (BitList *l, const char* s);
 extern char*     read_string    (BitList *l, int bits);
 
 extern char*     to_raw         (BitList *l);
+extern void      put_raw        (BitList *list, const char* str, int bits);
 extern void      from_raw       (BitList *l, const char* str, int bits);
 
 /* src ought to be const, but we're going to call write_close() on it */

@@ -1,5 +1,10 @@
 Revision history for Perl extension Data::BitStream::XS.
 
+0.07    ?? ??? 2012
+  - Cleanup C code using pedantic and extra warnings.
+  - Create a few primes on startup.
+  - Add a very rudimentary segment siever.
+
 0.06    28 May 2012
   - Fix compile issue on some strict C platforms.
   - More allocation croaks.

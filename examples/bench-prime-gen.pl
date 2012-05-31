@@ -73,6 +73,11 @@ sub gen_dbxs_simple {
   push @{$p}, @{Data::BitStream::XS::primes({method=>'simple'},$start, $end)};
   1;
 }
+sub gen_dbxs_segment {
+  my($p, $start, $end) = @_;
+  push @{$p}, @{Data::BitStream::XS::segment_primes($start, $end)};
+  1;
+}
 sub gen_pureperl {
   my($p, $start, $end) = @_;
   my $nextprime = _next_prime($start);
@@ -89,6 +94,7 @@ if ($test eq 'lbsr') {
     'MPFS'         => sub { my @p; gen_fastsieve(\@p, $lb, $lb+$sr); },
     'DBXS erat'    => sub { my @p; gen_dbxs_erat(\@p, $lb, $lb+$sr); },
     'DBXS simple'  => sub { my @p; gen_dbxs_simple(\@p, $lb, $lb+$sr); },
+    'DBXS segment' => sub { my @p; gen_dbxs_segment(\@p, $lb, $lb+$sr); },
     'DBXS next'    => sub { my @p; gen_dbxs_next(\@p, $lb, $lb+$sr); },
     'Pure Perl'    => sub { my @p; gen_pureperl(\@p, $lb, $lb+$sr); },
     'Math::Primality' => sub { my @p; gen_primality(\@p, $lb, $lb+$sr); },
@@ -106,6 +112,9 @@ if ($test eq 'lbsr') {
                           },
     'DBXS simple'  => sub { my @p = (2);
                             gen_dbxs_simple(\@p,$p[-1]+1,$_*1000+3) for (@kl);
+                          },
+    'DBXS segment' => sub { my @p = (2);
+                            gen_dbxs_segment(\@p,$p[-1]+1,$_*1000+3) for (@kl);
                           },
     'DBXS next'    => sub { my @p = (2);
                             gen_dbxs_next(\@p,$p[-1]+1,$_*1000+3) for (@kl);

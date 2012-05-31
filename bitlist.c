@@ -30,18 +30,18 @@ static int verbose = 0;
   WTYPE bs_stack_v[BIT_STACK_SIZE];
 
 #define PUSH_BITSTACK(bits, value) \
-  { int b = bits; \
-    WTYPE v = (value) & (W_FFFF >> (BITS_PER_WORD - b)); \
-    if ((bs_top_bits + b) <= BITS_PER_WORD) { \
-      bs_top_val |= (v << bs_top_bits); \
-      bs_top_bits += b; \
+  { int b_ = bits; \
+    WTYPE v_ = (value) & (W_FFFF >> (BITS_PER_WORD - b_)); \
+    if ((bs_top_bits + b_) <= BITS_PER_WORD) { \
+      bs_top_val |= (v_ << bs_top_bits); \
+      bs_top_bits += b_; \
     } else { \
       assert(bs_p < BIT_STACK_SIZE); \
       bs_stack_b[bs_p] = bs_top_bits; \
       bs_stack_v[bs_p] = bs_top_val; \
       bs_p++; \
-      bs_top_bits = b; \
-      bs_top_val = v; \
+      bs_top_bits = b_; \
+      bs_top_val = v_; \
     } \
   }
 #define WRITE_BITSTACK(list) \
@@ -513,7 +513,7 @@ void swrite(BitList *list, int bits, WTYPE value)
     list->data[wpos] |= (value & (W_FFFF >> wlen)) << (wlen-bpos);
   } else {             /* double-word write */
     int first_bits = BITS_PER_WORD - bpos;
-    int wlen       = BITS_PER_WORD - (bits - first_bits);
+    wlen           = BITS_PER_WORD - (bits - first_bits);
     list->data[wpos++] |=  value >> (bits - first_bits);
     list->data[wpos] |= (value & (W_FFFF >> wlen)) << (wlen-0);
   }
@@ -756,8 +756,6 @@ void put_unary (BitList *list, WTYPE value)
 {
   int len, bits, wpos, bpos;
 
-  assert(value >= 0);
-
   /* Simple way to do this:   swrite(list, value+1, W_ONE); */
   len = list->len;
   bits = value+1;
@@ -825,8 +823,6 @@ void put_unary1 (BitList *list, WTYPE value)
   int bpos = len % BITS_PER_WORD;
   int first_bits = BITS_PER_WORD - bpos;
 
-  assert(value >= 0);
-
   expand_list(list, len+value+1);
 
   if ( (bpos > 0) && (first_bits <= value) ) {
@@ -874,7 +870,6 @@ WTYPE get_gamma (BitList *list)
 
 void put_gamma (BitList *list, WTYPE value)
 {
-  assert(value >= 0);
   if (value == W_ZERO) {
     swrite(list, 1, 1);
   } else if (value == W_FFFF) {
@@ -1070,8 +1065,8 @@ void put_fib (BitList *list, WTYPE value)
 
 /* Generalized Fibonacci codes */
 #define MAX_FIBGEN_M 16
-static WTYPE fibm_val[MAX_FIBGEN_M-1][MAXFIB] = {0};
-static WTYPE fibm_sum[MAX_FIBGEN_M-1][MAXFIB] = {0};
+static WTYPE fibm_val[MAX_FIBGEN_M-1][MAXFIB] = { {0} };
+static WTYPE fibm_sum[MAX_FIBGEN_M-1][MAXFIB] = { {0} };
 static int   fibm_max[MAX_FIBGEN_M-1] = {0};
 static void _calc_fibm(int m)
 {
@@ -1537,7 +1532,7 @@ typedef struct {
   WTYPE  t [BITS_PER_WORD / 2];    /* threshold    */
 } bvzeta_map;
 
-static bvzeta_map bvzeta_map_cache[16] = {0};
+static bvzeta_map bvzeta_map_cache[16] = { {0} };
 
 static void bv_make_param_map(int k)
 {
@@ -1822,7 +1817,7 @@ WTYPE get_golomb_sub (BitList *list, SV* self, SV* code, WTYPE m)
 
   base = 1;
   {
-    WTYPE v = m-W_ONE;
+    v = m-W_ONE;
     while (v >>= 1)  base++;
   }
   threshold = (W_ONE << base) - m;
@@ -1860,9 +1855,6 @@ void  put_golomb_sub (BitList *list, SV* self, SV* code, WTYPE m, WTYPE value)
 
   q = value / m;
   r = value - (q * m);
-  assert(r >= 0);
-  assert(r < m);
-  assert(q*m+r == value);
   if (code == 0) { put_unary(list, q); }
   else           { call_put_sub(self, code, list, q); }
   if (r < threshold)
@@ -1882,7 +1874,7 @@ WTYPE get_gamma_golomb (BitList *list, WTYPE m)
   if (m == W_ONE)  return q;
 
   {
-    WTYPE v = m-W_ONE;
+    v = m-W_ONE;
     while (v >>= 1)  base++;
   }
   threshold = (W_ONE << base) - m;
@@ -1917,9 +1909,6 @@ void  put_gamma_golomb (BitList *list, WTYPE m, WTYPE value)
 
   q = value / m;
   r = value - (q * m);
-  assert(r >= 0);
-  assert(r < m);
-  assert(q*m+r == value);
   put_gamma(list, q);
   if (r < threshold)
     swrite(list, base-1, r);
@@ -2016,7 +2005,7 @@ char* make_startstop_prefix_map(SV* paramref)
       return 0;
     }
     step = (*step_sv != &PL_sv_undef)  ?  SvIV(*step_sv)  :  BITS_PER_WORD;
-    bits += (*step_sv != &PL_sv_undef)  ?  SvIV(*step_sv)  :  BITS_PER_WORD;
+    bits += step;
     if (bits > BITS_PER_WORD)  bits = BITS_PER_WORD;
     if (p == 0)
       minval = 0;
@@ -2078,8 +2067,8 @@ void put_startstop  (BitList *list, const char* cmap, WTYPE value)
   assert(map != 0);
   nparams = map[0].size;
   global_maxval = map[nparams-1].maxval;
-  if (value > map[nparams-1].maxval) {
-    croak("value %lu out of range 0 - %lu", value, map[nparams-1].maxval);
+  if (value > global_maxval) {
+    croak("value %lu out of range 0 - %lu", value, global_maxval);
     return;
   }
   prefix = 0;

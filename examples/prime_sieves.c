@@ -91,20 +91,23 @@ static WTYPE next_prime(WTYPE x)
  * Timings for counting the first 10^10 (10B) primes, in seconds.
  * Pi(10^10) = 455,052,511
  *
- *     2.4  primesieve 3.6 (even faster with multiple threads)
- *    12.5  primegen (optimized Sieve of Atkin)
- *    12.5  simple version of TOS's segmented sieve
- *      ??  fast_sieve.c from Tomas Oliveria e Silva
+ *     1.9  primesieve 3.6 (even faster with multiple threads)
+ *     5.6  Tomás Oliveira e Silva's segmented sieve v2 (Sep 2010)
+ *    10.8  primegen (optimized Sieve of Atkin)
+ *    11.2  Tomás Oliveira e Silva's segmented sieve v1 (May 2003)
  *
- *    ???   sieve_erat30        (Erat wheel 30)
- *    24.9  sieve_erat30tm      (Terje wheel 30)
- *    46.4  sieve_eratek        (Sorensen)
- *    48.5  sieve_erat23        (simple erat mod)
- *    53.9  sieve_atkin         (Praxis)
- *    54.6  sieve_erat          (Simple Erat)
- *    97.2  sieve_atkin_2       (Fixup of naive)
- *   123.5  sieve_atkin_naive   (Wikipedia-like)
+ *    15.9  sieve_erat30        (my wheel 30 Erat)
+ *    17.2  sieve_erat30tm      (Terje wheel 30)
+ *    31.9  sieve_eratek        (Sorensen)
+ *    35.5  sieve_erat          (Simple Erat)
+ *    35.5  sieve_erat23        (simple erat mod)
+ *    33.4  sieve_atkin         (Praxis)
+ *    72.8  sieve_atkin_2       (Fixup of naive)
+ *    91.6  sieve_atkin_naive   (Wikipedia-like)
  *
+ * Retested after ensuring machine was idle.  As expected, the segmented
+ * sievers improve some, and the sievers that fill giant memory spaces
+ * improve a lot when other memory traffic is removed.
  */
 
 
@@ -179,14 +182,14 @@ static WTYPE* sieve_eratek(WTYPE end)
   p = 7;
   while ((p*p) <= end) {
     {
-      //printf("found prime %lu\n", p);
       size_t fidx = p%30;
       f = p;
+      /* Here's the problem -- for each prime, we're walking the array from
+       * start to finish 8 times.  The operation count is the same as the
+       * faster wheel-30 sieves, but this is just horrible for the cache. */
       while (f < p+30) {
-        for (x = p*f; x <= end; x += p*30) {
+        for (x = p*f; x <= end; x += p*30)
           SET_ARRAY_BIT(mem,x/2);
-          //printf("marked %6lu composite\n", x);
-        }
         size_t move = W[fidx];
         f += move;  fidx += move;
         if (fidx > 30) fidx -= 30;
@@ -251,7 +254,7 @@ static unsigned char mask_tab[30] = {
 #define IS_SIEVE30_SET(n) \
    (mem[n/30] & mask_tab[n%30])
 
-/* Proper wheel 32 sieve based on code from Terje Mathisen (1998) */
+/* Proper wheel 30 sieve based on code from Terje Mathisen (1998) */
 
 static unsigned char* sieve_erat30tm(WTYPE end)
 {
@@ -316,8 +319,13 @@ static unsigned char* sieve_erat30(WTYPE end)
    *    - use malloc instead of calloc
    *    - use a loop of memcpy(len*2) to speed up vs. the 7-byte loop below
    *    - memset 0 between max_buf and buffer_words
+   * If you take this one step further you can initialize a few more primes.
+   * You may then discover Tomás Oliveira e Silva already did that in his
+   * segmented siever (v2) where he constructs a pattern of 2/3/5/7/11/13
+   * marks, and then initializes buckets from that (though he does a byte
+   * copy instead of using memcpy).
    */
-#if 0
+#if 1
   if ( (7*7) <= end ) {
     WTYPE d = 1;
     while ( (d+6) < max_buf) {
@@ -333,7 +341,7 @@ static unsigned char* sieve_erat30(WTYPE end)
     //assert(d >= max_buf);
   }
 #endif
-  for (prime = 7; (prime*prime) <= end; prime = next_prime(prime)) {
+  for (prime = 11; (prime*prime) <= end; prime = next_prime(prime)) {
     WTYPE d = (prime*prime)/30;
     WTYPE m = (prime*prime) - d*30;
     WTYPE dinc = (2*prime)/30;

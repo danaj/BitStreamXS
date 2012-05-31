@@ -7,9 +7,7 @@ use Carp qw/croak confess/;
 
 BEGIN {
   $Data::BitStream::XS::AUTHORITY = 'cpan:DANAJ';
-}
-BEGIN {
-  $Data::BitStream::XS::VERSION = '0.06';
+  $Data::BitStream::XS::VERSION = '0.07';
 }
 
 # parent is cleaner, and in the Perl 5.10.1 / 5.12.0 core, but not earlier.
@@ -26,6 +24,7 @@ BEGIN {
   eval {
     require XSLoader;
     XSLoader::load(__PACKAGE__, $Data::BitStream::XS::VERSION);
+    prime_init(0);
     1;
   } or do {
     # We could insert a Pure Perl implementation here.
@@ -483,9 +482,18 @@ __END__
 
 =pod
 
+=encoding utf8
+
+
 =head1 NAME
 
 Data::BitStream::XS - A bit stream class including integer coding methods
+
+
+=head1 VERSION
+
+version 0.07
+
 
 =head1 SYNOPSIS
 
@@ -510,8 +518,8 @@ Bit streams are often used in data compression and in embedded products where
 memory is at a premium.
 
 This code provides a nearly drop-in XS replacement for the L<Data::BitStream>
-module.  If you do not need the flexibility of the Moose/Mouse system, you can
-use this directly.
+module.  If you do not need the flexibility of the Moose/Mouse/Moo system, you
+can use this directly.
 
 Versions 0.03 and later of the L<Data::BitStream> class will attempt to use
 this XS class if it is available.  Most operations will be 50-100 times faster,
@@ -519,10 +527,10 @@ while not sacrificing any of its flexibility, so it is highly recommended.  In
 other words, if this module is installed, any code using L<Data::BitStream>
 will automatically speed up.
 
-While direct use of the XS class is a bit faster than going through Mouse/Moose,
-the vast majority of the benefit is internal.  Hence, for maximum portability
-and flexibility just install this module for the speed, and continue using the
-L<Data::BitStream> class as usual.
+While direct use of the XS class is a bit faster than going through
+Moose/Mouse/Moo, the vast majority of the benefit is internal.  Hence, for
+maximum portability and flexibility just install this module for the speed,
+and continue using the L<Data::BitStream> class as usual.
 
 
 
@@ -1296,6 +1304,16 @@ instead.
 Dana Jacobsen E<lt>dana@acm.orgE<gt>
 
 
+=head1 ACKNOWLEDGEMENTS
+
+Peter Elias, Peter Fenwick, and David Solomon have excellent resources on
+variable length coding, and Solomon especially has done a lot of work in
+tracking down and explaining many of the more obscure codes.
+
+For prime number work, Eratosthenes of Cyrene provided the world with his
+wonderfully elegant and simple algorithm for finding the primes.
+Terje Mathisen, A.R. Quesada, and B. Van Pelt all had useful ideas which I
+used in my wheel sieve.
 
 
 =head1 COPYRIGHT

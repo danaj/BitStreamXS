@@ -22,6 +22,7 @@ extern WTYPE prime_count(WTYPE x);
 extern void  prime_init(WTYPE x);
 extern WTYPE* sieve_erat(WTYPE end);
 extern unsigned char* sieve_erat30(WTYPE end);
+extern int sieve_segment(unsigned char* mem, WTYPE startd, WTYPE endd);
 
 typedef struct
 {
