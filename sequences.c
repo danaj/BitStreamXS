@@ -74,54 +74,42 @@ WTYPE get_prime_cache(WTYPE n, const unsigned char** sieve)
 
 
 
-/* primes 2,3,5,7,11,13,17,19,23,29,31 as bits */
-#define SMALL_PRIMES_MASK W_CONST(2693408940)
-/* if (MOD235_MASK >> (n%30)) & 1, n is a multiple of 2, 3, or 5. */
-#define MOD235_MASK       W_CONST(1601558397)
-
-static WTYPE bgcd_odd(WTYPE a, WTYPE b) {
-  /* a must be an odd number */
-  do {
-    while ((b&1) == 0)
-      b >>= 1;
-    if (a > b) {  WTYPE t = b; b = a; a = t; }
-    b -= a;
-  } while (b != 0);
-  return a;
-}
-
 static int _is_prime7(WTYPE x)
 {
   WTYPE q, i;
-  /* Test gcd of 7*11*13*17*19*23*29 and 31*37*41*43*47 */
-#if WTYPE_IS_64BIT
-  if ( bgcd_odd(x, W_CONST(20496326086283047)) != 1 )
-    return 0;
-#else
-  if ( (bgcd_odd(x, 215656441U) != 1) || (bgcd_odd(x, 95041567U) != 1) )
-    return 0;
-#endif
-  i = 53;
-  while (1) {
-    q = x/i;  if (q<i) return 1;  if (x==(q*i)) return 0;   i += 6; // 23  53
-    q = x/i;  if (q<i) return 1;  if (x==(q*i)) return 0;   i += 2; // 29  59
-    q = x/i;  if (q<i) return 1;  if (x==(q*i)) return 0;   i += 6; //  1  61
-    q = x/i;  if (q<i) return 1;  if (x==(q*i)) return 0;   i += 4; //  7  67
-    q = x/i;  if (q<i) return 1;  if (x==(q*i)) return 0;   i += 2; // 11  71
-    q = x/i;  if (q<i) return 1;  if (x==(q*i)) return 0;   i += 4; // 13  73
-    q = x/i;  if (q<i) return 1;  if (x==(q*i)) return 0;   i += 2; // 17  77
-    q = x/i;  if (q<i) return 1;  if (x==(q*i)) return 0;   i += 4; // 19  79
+  i = 7;
+  while (1) {   /* trial division, skipping multiples of 2/3/5 */
+    q = x/i;  if (q<i) return 1;  if (x==(q*i)) return 0;   i += 4;
+    q = x/i;  if (q<i) return 1;  if (x==(q*i)) return 0;   i += 2;
+    q = x/i;  if (q<i) return 1;  if (x==(q*i)) return 0;   i += 4;
+    q = x/i;  if (q<i) return 1;  if (x==(q*i)) return 0;   i += 2;
+    q = x/i;  if (q<i) return 1;  if (x==(q*i)) return 0;   i += 4;
+    q = x/i;  if (q<i) return 1;  if (x==(q*i)) return 0;   i += 6;
+    q = x/i;  if (q<i) return 1;  if (x==(q*i)) return 0;   i += 2;
+    q = x/i;  if (q<i) return 1;  if (x==(q*i)) return 0;   i += 6;
   }
   return 1;
 }
+
+/* Marked bits for each n, indicating if the number is prime */
+static const unsigned char prime_is_small[] =
+  {0xac,0x28,0x8a,0xa0,0x20,0x8a,0x20,0x28,0x88,0x82,0x08,0x02,0xa2,0x28,0x02,
+   0x80,0x08,0x0a,0xa0,0x20,0x88,0x20,0x28,0x80,0xa2,0x00,0x08,0x80,0x28,0x82,
+   0x02,0x08,0x82,0xa0,0x20,0x0a,0x20,0x00,0x88,0x22,0x00,0x08,0x02,0x28,0x82,
+   0x80,0x20,0x88,0x20,0x20,0x02,0x02,0x28,0x80,0x82,0x08,0x02,0xa2,0x08,0x80,
+   0x80,0x08,0x88,0x20,0x00,0x0a,0x00,0x20,0x08,0x20,0x08,0x0a,0x02,0x08,0x82,
+   0x82,0x20,0x0a,0x80,0x00,0x8a,0x20,0x28,0x00,0x22,0x08,0x08,0x20,0x20,0x80,
+   0x80,0x20,0x88,0x80,0x20,0x02,0x22,0x00,0x08,0x20,0x00,0x0a,0xa0,0x28,0x80,
+   0x00,0x20,0x8a,0x00,0x20,0x8a,0x00,0x00,0x88,0x80,0x00,0x02,0x22,0x08,0x02};
+#define NPRIME_IS_SMALL (sizeof(prime_is_small)/sizeof(prime_is_small[0]))
 
 int is_prime(WTYPE n)
 {
   WTYPE d, m;
   unsigned char mtab;
 
-  if (n <= 31)
-    return ((SMALL_PRIMES_MASK >> n) & 1);
+  if ( n < (NPRIME_IS_SMALL*8))
+    return ((prime_is_small[n/8] >> (n%8)) & 1);
 
   d = n/30;
   m = n - d*30;
@@ -138,7 +126,7 @@ int is_prime(WTYPE n)
   return _is_prime7(n);
 }
 
-static const WTYPE prime_next_small[] =
+static const unsigned char prime_next_small[] =
   {2,2,3,5,5,7,7,11,11,11,11,13,13,17,17,17,17,19,19,23,23,23,23,
    29,29,29,29,29,29,31,31,37,37,37,37,37,37,41,41,41,41,43,43,47,
    47,47,47,53,53,53,53,53,53,59,59,59,59,59,59,61,61,67,67,67,67,67,67,71};
@@ -146,24 +134,18 @@ static const WTYPE prime_next_small[] =
 
 WTYPE next_trial_prime(WTYPE n)
 {
-  static const WTYPE L = 30;
-  static const WTYPE indices[] = {1, 7, 11, 13, 17, 19, 23, 29};
-  static const WTYPE M = 8;
-  WTYPE d;
-  int index;
+  WTYPE d,m;
 
   if (n < NPRIME_NEXT_SMALL)
     return prime_next_small[n];
 
-  n++;
-  d = n/L;
-  index = 0;   while ((n-d*L) > indices[index])  index++;
-  n = L*d + indices[index];
-  while (!_is_prime7(n)) {
-    if (++index == M) { d++; index = 0; }
-    n = L*d + indices[index];
+  d = n/30;
+  m = n - d*30;
+  m = nextwheel30[m];  if (m == 1) d++;
+  while (!_is_prime7(d*30+m)) {
+    m = nextwheel30[m];  if (m == 1) d++;
   }
-  return n;
+  return(d*30+m);
 }
 
 WTYPE next_prime(WTYPE n)
@@ -181,17 +163,13 @@ WTYPE next_prime(WTYPE n)
     n = prime_cache_size;
   }
 
-  n++;
   d = n/30;
   m = n - d*30;
-  m += distancewheel30[m];  /* m is on a wheel location */
-  assert(masktab30[m] != 0);
-  n = d*30+m;
-  while (!_is_prime7(n)) {
+  m = nextwheel30[m];  if (m == 1) d++;
+  while (!_is_prime7(d*30+m)) {
     m = nextwheel30[m];  if (m == 1) d++;
-    n = d*30+m;
   }
-  return n;
+  return(d*30+m);
 }
 
 
@@ -233,7 +211,7 @@ WTYPE next_prime(WTYPE n)
  *
  */
 
-static const UV prime_count_small[] =
+static const unsigned char prime_count_small[] =
   {0,0,1,2,2,3,3,4,4,4,4,5,5,6,6,6,6,7,7,8,8,8,8,9,9,9,9,9,9,10,10,
    11,11,11,11,11,11,12,12,12,12,13,13,14,14,14,14,15,15,15,15,15,15,
    16,16,16,16,16,16,17,17,18,18,18,18,18,18,19};
