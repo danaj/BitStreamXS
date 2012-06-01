@@ -562,7 +562,7 @@ int sieve_segment(unsigned char* mem, WTYPE startd, WTYPE endd)
   memset(mem, 0, ranged);
 
   limit = sqrt( (double) endp ) + 1;
-  //printf("segment sieve from %llu to %llu (aux sieve to %llu)\n", startp, endp, limit);
+  /* printf("segment sieve from %lu to %lu (aux sieve to %lu)\n", startp, endp, limit); */
   pcsize = get_prime_cache(limit, &sieve);
   if (pcsize < limit) {
     croak("Couldn't generate small sieve for segment sieve");
@@ -571,29 +571,55 @@ int sieve_segment(unsigned char* mem, WTYPE startd, WTYPE endd)
 
   START_DO_FOR_EACH_SIEVE_PRIME(sieve, 7, pcsize)
   {
-    //printf("   sieving %llu ...", p);
     /* p increments from 7 to at least sqrt(endp) */
     WTYPE p2 = p*p;
-    //printf(" square %llu", p2);
     if (p2 >= endp)  break;
+    /* Find first multiple of p greater than p*p and larger than startp */
     if (p2 < startp) {
       p2 = (startp / p) * p;
       if (p2 < startp)  p2 += p;
-      //printf(" bumped to %llu", p2);
     }
-    /* Sieve from startd to endd starting at p2, stepping p */
-    /* TODO: This is a very basic loop.  Apply smarts. */
-    while (p2 < endp) {
-      while (masktab30[p2%30] == 0) { p2 += p; }
-      //printf(" . %llu", p2);
-      if (p2 < endp)
+    /* Bump to next multiple that isn't divisible by 2, 3, or 5 */
+    while (masktab30[p2%30] == 0) { p2 += p; }
+    if (p2 < endp)  {
+      /* Sieve from startd to endd starting at p2, stepping p */
+#if 0
+      /* Basic sieve */
+      do {
         mem[(p2 - startp)/30] |= masktab30[p2%30];
-      p2 += p;
+        do { p2 += 2*p; } while (masktab30[p2%30] == 0);
+      } while (p2 < endp);
+#else
+      WTYPE d = (p2)/30;
+      WTYPE m = (p2) - d*30;
+      WTYPE dinc = (2*p)/30;
+      WTYPE minc = (2*p) - dinc*30;
+      WTYPE wdinc[8];
+      unsigned char wmask[8];
+      int i;
+
+      /* Find the positions of the next composites we will mark */
+      for (i = 1; i <= 8; i++) {
+        WTYPE dlast = d;
+        do {
+          d += dinc;
+          m += minc;
+          if (m >= 30) { d++; m -= 30; }
+        } while ( masktab30[m] == 0 );
+        wdinc[i-1] = d - dlast;
+        wmask[i%8] = masktab30[m];
+      }
+      d -= p;
+      i = 0;        /* Mark the composites */
+      do {
+        mem[d-startd] |= wmask[i];
+        d += wdinc[i];
+        i = (i+1) & 7;
+      } while (d <= endd);
+#endif
     }
-    //printf("\n");
   }
   END_DO_FOR_EACH_SIEVE_PRIME;
-  //printf("\nsegment sieve done.\n");
 
   return 1;
 }

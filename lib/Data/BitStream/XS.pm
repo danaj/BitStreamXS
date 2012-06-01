@@ -463,6 +463,8 @@ sub primes {
     $sref = erat_primes($start, $end);
   } elsif ($method =~ /^Simple\w*$/i) {   # Force basic SoE
     $sref = erat_simple_primes($start, $end);
+  } elsif ($method =~ /^Seg\w*$/i) {      # Force segmented sieve
+    $sref = segment_primes($start, $end);
   } elsif ($method =~ /^Sieve$/i) {
     # Do a smart cached thing (typically sieving).
     $sref = sieve_primes($start, $end);

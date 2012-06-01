@@ -892,7 +892,7 @@ trial_primes(IN UV low, IN UV high)
   OUTPUT:
     RETVAL
 
-#define SEGMENT_SIZE (32768*1)  /* 32k = 983040 numbers at a time */
+#define SEGMENT_SIZE (32768*2)  /* 32k = 983040 numbers at a time */
 
 SV*
 segment_primes(IN UV low, IN UV high)
@@ -900,6 +900,10 @@ segment_primes(IN UV low, IN UV high)
     AV* av = newAV();
     unsigned char* sieve;
   CODE:
+    if ((low <= 2) && (high >= 2)) { av_push(av, newSVuv( 2 )); }
+    if ((low <= 3) && (high >= 3)) { av_push(av, newSVuv( 3 )); }
+    if ((low <= 5) && (high >= 5)) { av_push(av, newSVuv( 5 )); }
+    if (low < 7)  low = 7;
 #if 0
     if (low <= high) {
       WTYPE startd = low/30;
@@ -908,43 +912,41 @@ segment_primes(IN UV low, IN UV high)
       /* TODO, run in reasonable size segments */
       sieve = (unsigned char*) malloc( ranged );
       (void) sieve_segment(sieve, startd, endd);
-      if ((low <= 2) && (high >= 2)) { av_push(av, newSVuv( 2 )); }
-      if ((low <= 3) && (high >= 3)) { av_push(av, newSVuv( 3 )); }
-      if ((low <= 5) && (high >= 5)) { av_push(av, newSVuv( 5 )); }
       START_DO_FOR_EACH_SIEVE_PRIME( sieve, 1, high-30*startd ) {
          WTYPE n = startd*30 + p;
          if (n >= low) {
            av_push(av,newSVuv( n ));
          }
       } END_DO_FOR_EACH_SIEVE_PRIME
+      free(sieve);
     }
     RETVAL = newRV_noinc( (SV*) av );
 #else
-    if ((low <= 2) && (high >= 2)) { av_push(av, newSVuv( 2 )); }
-    if ((low <= 3) && (high >= 3)) { av_push(av, newSVuv( 3 )); }
-    if ((low <= 5) && (high >= 5)) { av_push(av, newSVuv( 5 )); }
-    if (low < 7)  low = 7;
     if (low <= high) {
       sieve = (unsigned char*) malloc( SEGMENT_SIZE );
       while (low <= high) {
-        WTYPE seghigh = ((high/30 - low/30) < SEGMENT_SIZE)  ?  high  :  ( (low/30 + SEGMENT_SIZE-1)*30 );
+        WTYPE seghigh = ((high/30 - low/30) < SEGMENT_SIZE)
+                          ?  high
+                          :  ( (low/30 + SEGMENT_SIZE-1)*30+29 );
         WTYPE startd = low/30;
         WTYPE endd = seghigh/30;
         WTYPE ranged = endd - startd + 1;
+//printf("low %lu  high %lu\n", low, high);
+//printf("l30 %lu  h30  %lu\n", low/30, high/30);
+//printf("seghigh %lu\n", seghigh);
+//printf("sieving from %lu to %lu, then looking from %lu to %lu\n", startd*30+1, endd*30+29, low, seghigh);
         assert(endd >= startd);
         assert(ranged <= SEGMENT_SIZE);
-        //printf("sieve segment from %llu to %llu\n", startd*30+1, endd*30+29);
+        //printf("sieve segment from %lu to %lu\n", startd*30+1, endd*30+29);
         (void) sieve_segment(sieve, startd, endd);
-        START_DO_FOR_EACH_SIEVE_PRIME( sieve, 1, seghigh-30*startd ) {
-           WTYPE n = startd*30 + p;
-           if (n >= low) {
-             av_push(av,newSVuv( n ));
-           }
-        } END_DO_FOR_EACH_SIEVE_PRIME
-        low += ranged*30;
+        //printf("search segment from %lu to %lu\n", low, seghigh);
+        START_DO_FOR_EACH_SIEVE_PRIME( sieve, low-startd*30, seghigh-30*startd )
+          av_push(av,newSVuv( startd*30 + p ));
+        END_DO_FOR_EACH_SIEVE_PRIME
+        low = seghigh+2;
       }
+      free(sieve);
     }
-    free(sieve);
     RETVAL = newRV_noinc( (SV*) av );
 #endif
   OUTPUT:

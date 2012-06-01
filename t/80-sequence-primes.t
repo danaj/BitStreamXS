@@ -8,7 +8,7 @@ use Data::BitStream::XS qw(is_prime next_prime primes primes prime_count prime_c
 my $use64 = Data::BitStream::XS->maxbits > 32;
 my $extra = defined $ENV{RELEASE_TESTING} && $ENV{RELEASE_TESTING};
 
-plan tests => 6 + 19 + 3573 + (5 + 29 + 22 + 23 + 16) + 499 + 4*12+1+1
+plan tests => 6 + 19 + 3573 + (5 + 29 + 22 + 23 + 16) + 499 + 5*12+1+2
               + 10*3+7
               + ($use64 ? 5 + 9*2 : 0)
               + ($extra ? 3 : 0);
@@ -97,7 +97,7 @@ for (my $i = 0; $i < (scalar @small_primes) - 1; $i++) {
 }
 
 # Ranges
-foreach my $method (qw/trial erat simple sieve/) {
+foreach my $method (qw/trial erat simple segment sieve/) {
   is_deeply( primes({method=>$method}, 0, 3572), \@small_primes, "Primes between 0 and 3572" );
   is_deeply( primes({method=>$method}, 2, 20), [2,3,5,7,11,13,17,19], "Primes between 2 and 20" );
   is_deeply( primes({method=>$method}, 30, 70), [31,37,41,43,47,53,59,61,67], "Primes between 30 and 70" );
@@ -113,10 +113,11 @@ foreach my $method (qw/trial erat simple sieve/) {
 }
 
 # Compare the two sieves
-is_deeply( primes({method=>'erat'}, 0, 1000000), primes({method=>'simpleerat'}, 0, 1000000), "Compare sieves" );
+is_deeply( primes({method=>'erat'}, 0, 1000000), primes({method=>'simple'}, 0, 1000000), "Compare sieves" );
 
-# Large 32-bit gap using trial
+# Large 32-bit gap using trial and segment
 is_deeply( primes({method=>'trial'}, 3842610773, 3842610773+336), [3842610773,3842610773+336], "Primegap 34 inclusive" );
+is_deeply( primes({method=>'segment'}, 3842610773, 3842610773+336), [3842610773,3842610773+336], "Primegap 34 inclusive" );
 
 
 # Prime counts
