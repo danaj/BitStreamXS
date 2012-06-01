@@ -9,6 +9,16 @@
 
 #include "sequences.h"
 
+#if 0
+static __inline__ uint64_t rdtsc(void)
+{
+     unsigned a, d; 
+     asm volatile("rdtsc" : "=a" (a), "=d" (d)); 
+     return ((uint64_t)a) | (((uint64_t)d) << 32); 
+}
+/* uint64_t ts = rdtsc();  ....  te = tdtsc();  tot += te-ts; */
+#endif
+
 /********************  primes  ********************/
 
 static WTYPE count_zero_bits(const unsigned char* m, WTYPE nbytes)
@@ -677,6 +687,15 @@ int find_best_pair(WTYPE* basis, int basislen, WTYPE val, int adder, int* a, int
   }
   return (bestlen < INT_MAX);
 }
+
+/* If you roll your own prev_prime and next_prime, you can make this
+ * about 35% faster.  I decided it wasn't worth the obfuscation.  E.g.
+ *
+ *    if (i <= 3) { pim = pi = (i==1) ? 3 : (i==2) ? 5 : 7;
+ *    } else { do { pim = nextwheel30[pim];  if (pim == 1) pid++;
+ *                } while (sieve[pid] & masktab30[pim]);
+ *             pi = pid*30+pim; }
+ */
 
 int find_best_prime_pair(WTYPE val, int adder, int* a, int* b)
 {

@@ -71,12 +71,10 @@ static WTYPE next_prime_in_sieve(const unsigned char* sieve, WTYPE p) {
     return (p < 2) ? 2 : (p < 3) ? 3 : (p < 5) ? 5 : 7;
   d = p/30;
   m = p - d*30;
-  if (m == 29) d++;
-  m = nextwheel30[m];
-  while (sieve[d] & masktab30[m]) {
-    m = nextwheel30[m];
-    if (m == 1) d++;
-  }
+  do {
+    if (m==29) { d++; m = 1; while (sieve[d] == 0xFF) d++; }
+    else       { m = nextwheel30[m]; }
+  } while (sieve[d] & masktab30[m]);
   return(d*30+m);
 }
 static WTYPE prev_prime_in_sieve(const unsigned char* sieve, WTYPE p) {
@@ -85,12 +83,9 @@ static WTYPE prev_prime_in_sieve(const unsigned char* sieve, WTYPE p) {
     return (p <= 2) ? 0 : (p <= 3) ? 2 : (p <= 5) ? 3 : 5;
   d = p/30;
   m = p - d*30;
-  if (m <= 1) { d--; }
-  m = prevwheel30[m];
-  while (sieve[d] & masktab30[m]) {
-    m = prevwheel30[m];
-    if (m == 29) { if (d == 0) return 0;  d--; }
-  }
+  do {
+    m = prevwheel30[m];  if (m==29) { if (d == 0) return 0;  d--; }
+  } while (sieve[d] & masktab30[m]);
   return(d*30+m);
 }
 
