@@ -1188,10 +1188,13 @@ so successive calls within the range will be faster.
 At this time, it is the fastest prime generator on CPAN to my knowledge, and
 will use less memory for sieving.  For sieving the first primes below C<10^10>
 (10 billion), it is about 2x faster than L<Math::Prime::FastSieve> 0.12,
-and over 10x faster than L<Math::Prime::XS>.  Substantial performance
-improvements remain possible in both speed and space.  Note also that for
-small numbers, e.g. less than C<10^6> (1 million), the difference is
-1.1x - 1.5x at most, so it really doesn't matter which you use.
+and over 10x faster than L<Math::Prime::XS>.  For small numbers, e.g. less
+than C<10^6> (1 million), the difference is 1.1x - 1.5x at most, so it really
+doesn't matter which XS module you use.  Lastly, while the siever included
+here is pretty efficient, it isn't state of the art by any means, and is
+significantly slower than several freely available non-Perl packages.  In
+particular, both primesieve and Tomás Oliveira e Silva's segmented siever
+are much faster.
 
 Using the default method, no more than 32MB of internal memory will be used
 for any range where C<high E<lt> 10^18>, making it by far the most memory

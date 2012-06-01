@@ -44,13 +44,16 @@
 #ifdef HAS_QUAD
   typedef U64TYPE WTYPE;
   #define W_CONST(c)  U64_CONST(c)
+  #define WTYPE_IS_64BIT   1
 #elif LONGSIZE >= 8
   /* Should we be doing this? */
   typedef unsigned long WTYPE
   #define W_CONST(c)  ((U64TYPE)x##UL)
+  #define WTYPE_IS_64BIT   1
 #else
   typedef U32TYPE WTYPE;
   #define W_CONST(c)  U32_CONST(c)
+  #define WTYPE_IS_64BIT   0
 #endif
 
 #define W_ZERO      W_CONST(0)

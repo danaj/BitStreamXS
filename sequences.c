@@ -79,28 +79,38 @@ WTYPE get_prime_cache(WTYPE n, const unsigned char** sieve)
 /* if (MOD235_MASK >> (n%30)) & 1, n is a multiple of 2, 3, or 5. */
 #define MOD235_MASK       W_CONST(1601558397)
 
+static WTYPE bgcd_odd(WTYPE a, WTYPE b) {
+  /* a must be an odd number */
+  do {
+    while ((b&1) == 0)
+      b >>= 1;
+    if (a > b) {  WTYPE t = b; b = a; a = t; }
+    b -= a;
+  } while (b != 0);
+  return a;
+}
+
 static int _is_prime7(WTYPE x)
 {
   WTYPE q, i;
-  /* Check for small primes */
-  q = x/ 7;  if (q< 7) return 1;  if (x==(q* 7)) return 0;
-  q = x/11;  if (q<11) return 1;  if (x==(q*11)) return 0;
-  q = x/13;  if (q<13) return 1;  if (x==(q*13)) return 0;
-  q = x/17;  if (q<17) return 1;  if (x==(q*17)) return 0;
-  q = x/19;  if (q<19) return 1;  if (x==(q*19)) return 0;
-  q = x/23;  if (q<23) return 1;  if (x==(q*23)) return 0;
-  q = x/29;  if (q<29) return 1;  if (x==(q*29)) return 0;
-  /* wheel factorization, mod-30 loop */
-  i = 31;
+  /* Test gcd of 7*11*13*17*19*23*29 and 31*37*41*43*47 */
+#if WTYPE_IS_64BIT
+  if ( bgcd_odd(x, W_CONST(20496326086283047)) != 1 )
+    return 0;
+#else
+  if ( (bgcd_odd(x, 215656441U) != 1) || (bgcd_odd(x, 95041567U) != 1) )
+    return 0;
+#endif
+  i = 53;
   while (1) {
-    q = x/i;  if (q<i) return 1;  if (x==(q*i)) return 0;   i += 6;
-    q = x/i;  if (q<i) return 1;  if (x==(q*i)) return 0;   i += 4;
-    q = x/i;  if (q<i) return 1;  if (x==(q*i)) return 0;   i += 2;
-    q = x/i;  if (q<i) return 1;  if (x==(q*i)) return 0;   i += 4;
-    q = x/i;  if (q<i) return 1;  if (x==(q*i)) return 0;   i += 2;
-    q = x/i;  if (q<i) return 1;  if (x==(q*i)) return 0;   i += 4;
-    q = x/i;  if (q<i) return 1;  if (x==(q*i)) return 0;   i += 6;
-    q = x/i;  if (q<i) return 1;  if (x==(q*i)) return 0;   i += 2;
+    q = x/i;  if (q<i) return 1;  if (x==(q*i)) return 0;   i += 6; // 23  53
+    q = x/i;  if (q<i) return 1;  if (x==(q*i)) return 0;   i += 2; // 29  59
+    q = x/i;  if (q<i) return 1;  if (x==(q*i)) return 0;   i += 6; //  1  61
+    q = x/i;  if (q<i) return 1;  if (x==(q*i)) return 0;   i += 4; //  7  67
+    q = x/i;  if (q<i) return 1;  if (x==(q*i)) return 0;   i += 2; // 11  71
+    q = x/i;  if (q<i) return 1;  if (x==(q*i)) return 0;   i += 4; // 13  73
+    q = x/i;  if (q<i) return 1;  if (x==(q*i)) return 0;   i += 2; // 17  77
+    q = x/i;  if (q<i) return 1;  if (x==(q*i)) return 0;   i += 4; // 19  79
   }
   return 1;
 }
@@ -117,7 +127,7 @@ int is_prime(WTYPE n)
   m = n - d*30;
   mtab = masktab30[m];  /* Bitmask in mod30 wheel */
 
-  /* Return 0 if not a multiple of 2, 3, or 5 */
+  /* Return 0 if a multiple of 2, 3, or 5 */
   if (mtab == 0)
     return 0;
 
@@ -215,7 +225,7 @@ WTYPE next_prime(WTYPE n)
  * is much tighter.  These bounds can be tightened even more.
  *
  * The formulas of Dusart for higher x are better yet.  I recommend the paper
- * by Burde for further information.
+ * by Burde for further information.  Dusart's thesis is also a good resource.
  *
  * I have tweaked the bounds formulas for small (under 4000M) numbers so they
  * are tighter.  These bounds are verified via trial.  The Dusart bounds
@@ -314,7 +324,9 @@ UV prime_count_upper(WTYPE x)
    *    return ((UV) ( (fx/flogx) * (F1 + F1/flogx + a/(flogx*flogx)) ) + clog[(int)flogx] + 0.01);
    *  }
    *
-   * Another thought is to use another term to help control the growth.
+   * Another thought is to use more terms in the Li(x) expansion along with
+   * a subtraction [Li(x) > Pi(x) for x < 10^316 or so, so for our 64-bit
+   * version we should be fine].
    */
 
   return (UV) ( (fx/flogx) * (F1 + F1/flogx + a/(flogx*flogx)) + F1 );
