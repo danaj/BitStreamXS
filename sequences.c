@@ -21,23 +21,20 @@ static __inline__ uint64_t rdtsc(void)
 
 /********************  primes  ********************/
 
+static const unsigned char byte_zeros[256] =
+  {8,7,7,6,7,6,6,5,7,6,6,5,6,5,5,4,7,6,6,5,6,5,5,4,6,5,5,4,5,4,4,3,
+   7,6,6,5,6,5,5,4,6,5,5,4,5,4,4,3,6,5,5,4,5,4,4,3,5,4,4,3,4,3,3,2,
+   7,6,6,5,6,5,5,4,6,5,5,4,5,4,4,3,6,5,5,4,5,4,4,3,5,4,4,3,4,3,3,2,
+   6,5,5,4,5,4,4,3,5,4,4,3,4,3,3,2,5,4,4,3,4,3,3,2,4,3,3,2,3,2,2,1,
+   7,6,6,5,6,5,5,4,6,5,5,4,5,4,4,3,6,5,5,4,5,4,4,3,5,4,4,3,4,3,3,2,
+   6,5,5,4,5,4,4,3,5,4,4,3,4,3,3,2,5,4,4,3,4,3,3,2,4,3,3,2,3,2,2,1,
+   6,5,5,4,5,4,4,3,5,4,4,3,4,3,3,2,5,4,4,3,4,3,3,2,4,3,3,2,3,2,2,1,
+   5,4,4,3,4,3,3,2,4,3,3,2,3,2,2,1,4,3,3,2,3,2,2,1,3,2,2,1,2,1,1,0};
 static WTYPE count_zero_bits(const unsigned char* m, WTYPE nbytes)
 {
   WTYPE count = 0;
-  assert( (nbytes % sizeof(WTYPE)) == 0 );
-  assert( (((WTYPE)m) % sizeof(WTYPE)) == 0);
-  {
-    const WTYPE* wm = (const WTYPE*) m;
-    WTYPE nwords = nbytes / sizeof(WTYPE);
-    while (nwords-- > 0) {
-      /* Count 0 bits using Wegner/Lehmer/Kernighan method. */
-      WTYPE word = ~ *wm++;
-      while (word) {
-        word &= word-1;
-        count++;
-      }
-    }
-  }
+  while (nbytes--)
+    count += byte_zeros[*m++];
   return count;
 }
 
@@ -331,7 +328,7 @@ UV prime_count_approx(WTYPE x)
   return ((lower + upper) / 2);
 }
 
-static const WTYPE primes_small[] =
+static const unsigned char primes_small[] =
   {0,2,3,5,7,11,13,17,19,23,29,31,37,41,43,47,53,59,61,67,71};
 #define NPRIMES_SMALL (sizeof(primes_small)/sizeof(primes_small[0]))
 
@@ -355,7 +352,7 @@ static UV nth_prime_lower(WTYPE n)
 UV nth_prime(WTYPE n)
 {
   const unsigned char* sieve;
-  UV upper_limit, start, count, s, nwords_left;
+  UV upper_limit, start, count, s, bytes_left;
 
   if (n < NPRIMES_SMALL)
     return primes_small[n];
@@ -370,16 +367,16 @@ UV nth_prime(WTYPE n)
   count = 3;
   start = 7;
   s = 0;
-  nwords_left = (n-count) / (8*sizeof(WTYPE));
-  while ( nwords_left > 0 ) {
-    /* There is at minimum one word we can count (and probably many more) */
-    count += count_zero_bits(sieve+s*sizeof(WTYPE), nwords_left*sizeof(WTYPE));
+  bytes_left = (n-count) / 8;
+  while ( bytes_left > 0 ) {
+    /* There is at minimum one byte we can count (and probably many more) */
+    count += count_zero_bits(sieve+s, bytes_left);
     assert(count <= n);
-    s += nwords_left;
-    nwords_left = (n-count) / (8*sizeof(WTYPE));
+    s += bytes_left;
+    bytes_left = (n-count) / 8;
   }
   if (s > 0)
-    start = s * sizeof(WTYPE) * 30;
+    start = s * 30;
 
   START_DO_FOR_EACH_SIEVE_PRIME(sieve, start, upper_limit)
     if (++count == n)  return p;
@@ -393,7 +390,7 @@ UV nth_prime(WTYPE n)
 void prime_init(WTYPE n)
 {
   if ( (n == 0) && (prime_cache_sieve == 0) ) {
-    /* On init, make a few primes */
+    /* On init, make a few primes (2-30k using 1k memory) */
     size_t initial_primes_to = 30 * (1024-8);
     prime_cache_sieve = sieve_erat30(initial_primes_to);
     if (prime_cache_sieve != 0)
@@ -408,9 +405,9 @@ void prime_init(WTYPE n)
 UV prime_count(WTYPE n)
 {
   const unsigned char* sieve;
-  static WTYPE last_fw    = 0;
+  static WTYPE last_bytes = 0;
   static UV    last_count = 3;
-  WTYPE s, full_words;
+  WTYPE s, bytes;
   UV count = 3;
 
   if (n < NPRIME_COUNT_SMALL)
@@ -428,22 +425,22 @@ UV prime_count(WTYPE n)
     count++;
   END_DO_FOR_EACH_SIEVE_PRIME;
 #else
-  full_words = n / (30*sizeof(WTYPE));
+  bytes = n / 30;
   s = 0;
 
   /* Start from last word position if we can.  This is a big speedup when
    * calling prime_count many times with successively larger numbers. */
-  if (full_words >= last_fw) {
-    s = last_fw;
+  if (bytes >= last_bytes) {
+    s = last_bytes;
     count = last_count;
   }
 
-  count += count_zero_bits(sieve+s*sizeof(WTYPE), (full_words-s)*sizeof(WTYPE));
+  count += count_zero_bits(sieve+s, bytes-s);
 
-  last_fw    = full_words;
+  last_bytes = bytes;
   last_count = count;
 
-  START_DO_FOR_EACH_SIEVE_PRIME(sieve, 30*sizeof(WTYPE)*full_words, n)
+  START_DO_FOR_EACH_SIEVE_PRIME(sieve, 30*bytes, n)
     count++;
   END_DO_FOR_EACH_SIEVE_PRIME;
 #endif
