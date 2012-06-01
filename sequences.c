@@ -36,7 +36,7 @@ static unsigned char* prime_cache_sieve = 0;
 static WTYPE  prime_cache_size = 0;
 
 /* Get the maximum sieved value of the cached prime sieve. */
-WTYPE get_prime_cache_size(void)
+WTYPE _get_prime_cache_size(void)
 {
   return prime_cache_size;
 }

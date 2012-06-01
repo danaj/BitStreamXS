@@ -65,17 +65,22 @@ sub gen_dbxs_next {
 }
 sub gen_dbxs_erat {
   my($p, $start, $end) = @_;
-  push @{$p}, @{Data::BitStream::XS::primes({method=>'erat'},$start, $end)};
+  push @{$p}, @{Data::BitStream::XS::erat_primes($start, $end)};
   1;
 }
 sub gen_dbxs_simple {
   my($p, $start, $end) = @_;
-  push @{$p}, @{Data::BitStream::XS::primes({method=>'simple'},$start, $end)};
+  push @{$p}, @{Data::BitStream::XS::erat_simple_primes($start, $end)};
   1;
 }
 sub gen_dbxs_segment {
   my($p, $start, $end) = @_;
   push @{$p}, @{Data::BitStream::XS::segment_primes($start, $end)};
+  1;
+}
+sub gen_dbxs_dynamic {
+  my($p, $start, $end) = @_;
+  push @{$p}, @{Data::BitStream::XS::primes($start, $end)};
   1;
 }
 sub gen_pureperl {
@@ -95,6 +100,7 @@ if ($test eq 'lbsr') {
     'DBXS erat'    => sub { my @p; gen_dbxs_erat(\@p, $lb, $lb+$sr); },
     'DBXS simple'  => sub { my @p; gen_dbxs_simple(\@p, $lb, $lb+$sr); },
     'DBXS segment' => sub { my @p; gen_dbxs_segment(\@p, $lb, $lb+$sr); },
+    'DBXS dynamic' => sub { my @p; gen_dbxs_dynamic(\@p, $lb, $lb+$sr); },
     'DBXS next'    => sub { my @p; gen_dbxs_next(\@p, $lb, $lb+$sr); },
     'Pure Perl'    => sub { my @p; gen_pureperl(\@p, $lb, $lb+$sr); },
     'Math::Primality' => sub { my @p; gen_primality(\@p, $lb, $lb+$sr); },
@@ -115,6 +121,9 @@ if ($test eq 'lbsr') {
                           },
     'DBXS segment' => sub { my @p = (2);
                             gen_dbxs_segment(\@p,$p[-1]+1,$_*1000+3) for (@kl);
+                          },
+    'DBXS dynamic' => sub { my @p = (2);
+                            gen_dbxs_dynamic(\@p,$p[-1]+1,$_*1000+3) for (@kl);
                           },
     'DBXS next'    => sub { my @p = (2);
                             gen_dbxs_next(\@p,$p[-1]+1,$_*1000+3) for (@kl);

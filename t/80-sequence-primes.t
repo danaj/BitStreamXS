@@ -97,7 +97,7 @@ for (my $i = 0; $i < (scalar @small_primes) - 1; $i++) {
 }
 
 # Ranges
-foreach my $method (qw/trial erat simple segment sieve/) {
+foreach my $method (qw/trial erat simple segment dynamic/) {
   is_deeply( primes({method=>$method}, 0, 3572), \@small_primes, "Primes between 0 and 3572" );
   is_deeply( primes({method=>$method}, 2, 20), [2,3,5,7,11,13,17,19], "Primes between 2 and 20" );
   is_deeply( primes({method=>$method}, 30, 70), [31,37,41,43,47,53,59,61,67], "Primes between 30 and 70" );

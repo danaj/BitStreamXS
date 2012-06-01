@@ -849,6 +849,9 @@ UV
 next_prime(IN UV n)
 
 
+UV
+_get_prime_cache_size()
+
 SV*
 sieve_primes(IN UV low, IN UV high)
   PREINIT:
@@ -892,10 +895,8 @@ trial_primes(IN UV low, IN UV high)
   OUTPUT:
     RETVAL
 
-#define SEGMENT_SIZE (32768*2)  /* 32k = 983040 numbers at a time */
-
 SV*
-segment_primes(IN UV low, IN UV high)
+segment_primes(IN UV low, IN UV high, IN UV segment_size = 65536UL)
   PREINIT:
     AV* av = newAV();
     unsigned char* sieve;
@@ -904,51 +905,36 @@ segment_primes(IN UV low, IN UV high)
     if ((low <= 3) && (high >= 3)) { av_push(av, newSVuv( 3 )); }
     if ((low <= 5) && (high >= 5)) { av_push(av, newSVuv( 5 )); }
     if (low < 7)  low = 7;
-#if 0
     if (low <= high) {
-      WTYPE startd = low/30;
-      WTYPE endd = high/30;
-      WTYPE ranged = endd - startd + 1;
-      /* TODO, run in reasonable size segments */
-      sieve = (unsigned char*) malloc( ranged );
-      (void) sieve_segment(sieve, startd, endd);
-      START_DO_FOR_EACH_SIEVE_PRIME( sieve, 1, high-30*startd ) {
-         WTYPE n = startd*30 + p;
-         if (n >= low) {
-           av_push(av,newSVuv( n ));
-         }
-      } END_DO_FOR_EACH_SIEVE_PRIME
-      free(sieve);
-    }
-    RETVAL = newRV_noinc( (SV*) av );
-#else
-    if (low <= high) {
-      sieve = (unsigned char*) malloc( SEGMENT_SIZE );
+      /* Call the segment siever one or more times */
+      sieve = (unsigned char*) malloc( segment_size );
+      if (sieve == 0)
+        croak("Could not allocate %lu bytes for segment sieve", segment_size);
       while (low <= high) {
-        WTYPE seghigh = ((high/30 - low/30) < SEGMENT_SIZE)
+        WTYPE seghigh = ((high/30 - low/30) < segment_size)
                           ?  high
-                          :  ( (low/30 + SEGMENT_SIZE-1)*30+29 );
+                          :  ( (low/30 + segment_size-1)*30+29 );
         WTYPE startd = low/30;
         WTYPE endd = seghigh/30;
         WTYPE ranged = endd - startd + 1;
-//printf("low %lu  high %lu\n", low, high);
-//printf("l30 %lu  h30  %lu\n", low/30, high/30);
-//printf("seghigh %lu\n", seghigh);
-//printf("sieving from %lu to %lu, then looking from %lu to %lu\n", startd*30+1, endd*30+29, low, seghigh);
         assert(endd >= startd);
-        assert(ranged <= SEGMENT_SIZE);
-        //printf("sieve segment from %lu to %lu\n", startd*30+1, endd*30+29);
-        (void) sieve_segment(sieve, startd, endd);
-        //printf("search segment from %lu to %lu\n", low, seghigh);
+        assert(ranged <= segment_size);
+
+        /* Sieve from startd*30+1 to endd*30+29.  */
+        if (sieve_segment(sieve, startd, endd) == 0) {
+          croak("Could not segment sieve from %lu to %lu", startd*30+1, endd*30+29);
+          break;
+        }
+
         START_DO_FOR_EACH_SIEVE_PRIME( sieve, low-startd*30, seghigh-30*startd )
           av_push(av,newSVuv( startd*30 + p ));
         END_DO_FOR_EACH_SIEVE_PRIME
+
         low = seghigh+2;
       }
       free(sieve);
     }
     RETVAL = newRV_noinc( (SV*) av );
-#endif
   OUTPUT:
     RETVAL
 
@@ -961,7 +947,7 @@ erat_primes(IN UV low, IN UV high)
     if (low <= high) {
       sieve = sieve_erat30(high);
       if (sieve == 0) {
-        croak("Could not generate sieve for %ld", high);
+        croak("Could not generate sieve for %lu", high);
       } else {
         if ((low <= 2) && (high >= 2)) { av_push(av, newSVuv( 2 )); }
         if ((low <= 3) && (high >= 3)) { av_push(av, newSVuv( 3 )); }

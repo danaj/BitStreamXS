@@ -8,7 +8,7 @@
 
 #include "wtype.h"
 
-extern WTYPE get_prime_cache_size(void);
+extern WTYPE _get_prime_cache_size(void);
 extern WTYPE get_prime_cache(WTYPE n, const unsigned char** sieve);
 extern int   is_prime(WTYPE x);
 extern WTYPE next_trial_prime(WTYPE x);
