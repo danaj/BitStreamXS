@@ -823,10 +823,12 @@ prime_init(IN UV n)
 UV
 prime_count(IN UV n)
   CODE:
-    if (GIMME_V == G_VOID)
+    if (GIMME_V == G_VOID) {
       prime_init(n);
-    else
+      RETVAL = 0;
+    } else {
       RETVAL = prime_count(n);
+    }
   OUTPUT:
     RETVAL
 

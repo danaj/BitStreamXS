@@ -1212,12 +1212,12 @@ An optional set of options can be given to the primes function as a hash
 reference in the first parameter.  Currently only C<method> is used, and
 possible values are:
 
-  C<Dynamic>  Whatever is most efficient, including caching.
-  C<Erat>     Uncached efficient Sieve of Eratosthenes
-  C<Simple>   Uncached simple Sieve of Eratosthenes
-  C<Trial>    Uncached trial division.
-  C<Segment>  Uncached segmented sieve
-  C<Sieve>    Cached efficient Sieve of Eratosthenes
+    Dynamic    Whatever is most efficient, including caching.
+    Erat       Uncached efficient Sieve of Eratosthenes
+    Simple     Uncached simple Sieve of Eratosthenes
+    Trial      Uncached trial division.
+    Segment    Uncached segmented sieve
+    Sieve      Cached efficient Sieve of Eratosthenes
 
 The default method is C<Dynamic>, where the actual operation will depend on
 the base and range.

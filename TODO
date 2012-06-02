@@ -38,3 +38,8 @@
   code is invalid (e.g. a base higher than 32/64).
   More work needs to be done, both in testing (e.g. Evenrodeh) and in making
   sure the position is correct after a short read (e.g. Rice, Golomb).
+
+
+- primes and Goldbach behavior needs to be examined near the 32-bit boundary
+  when running on 32-bit Perl.  In fact, all the primes code should be examined
+  for possible overflow issues.
