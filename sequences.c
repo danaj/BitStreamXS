@@ -57,8 +57,6 @@ WTYPE _get_prime_cache_size(void)
  */
 WTYPE get_prime_cache(WTYPE n, const unsigned char** sieve)
 {
-  n = ((n+1)/2)*2;  /* bump n up to next even number */
-
   if (prime_cache_size < n) {
 
     if (prime_cache_sieve != 0)
@@ -66,7 +64,9 @@ WTYPE get_prime_cache(WTYPE n, const unsigned char** sieve)
     prime_cache_size = 0;
 
     /* Sieve a bit more than asked, to mitigate thrashing */
-    n += 1000;
+    if (n < (W_FFFF-3840))
+      n += 3840;
+    /* TODO: testing near 2^32-1 */
 
     prime_cache_sieve = sieve_erat30(n);
 
@@ -336,17 +336,25 @@ static const unsigned char primes_small[] =
 static UV nth_prime_upper(WTYPE n)
 {
   float fn = (float) n;
+  float upper;
   if (n < NPRIMES_SMALL)
     return primes_small[n]+1;
-  return (UV) (fn * logf(fn)  +  fn * logf(logf(fn)) + 1.0);
+  upper = fn * logf(fn)  +  fn * logf(logf(fn)) + 1.0;
+  if (upper > (double)W_FFFF)
+    return 0;
+  return (UV) upper;
 }
 /* The nth prime will be more than this number */
 static UV nth_prime_lower(WTYPE n)
 {
   float fn = (float) n;
+  float lower;
   if (n < NPRIMES_SMALL)
     return (n==0) ? 0 : primes_small[n]-1;
-  return (UV) (fn * logf(fn)  +  fn * logf(logf(fn)) - fn);
+  lower = fn * logf(fn)  +  fn * logf(logf(fn)) - fn;
+  if (lower > (double)W_FFFF)
+    return 0;
+  return (UV) lower;
 }
 
 UV nth_prime(WTYPE n)
@@ -358,6 +366,10 @@ UV nth_prime(WTYPE n)
     return primes_small[n];
 
   upper_limit = nth_prime_upper(n);
+  if (upper_limit == 0) {
+    croak("nth_prime(%lu) would overflow", (unsigned long)n);
+    return 0;
+  }
   /* The nth prime is guaranteed to be within this range */
   if (get_prime_cache(upper_limit, &sieve) < upper_limit) {
     croak("Couldn't generate sieve for nth(%lu) [sieve to %lu]", (unsigned long)n, (unsigned long)upper_limit);
@@ -478,11 +490,11 @@ WTYPE* sieve_erat(WTYPE end)
 unsigned char* sieve_erat30(WTYPE end)
 {
   unsigned char* mem;
-  size_t max_buf, buffer_words;
+  size_t max_buf, buffer_words, limit;
   WTYPE prime;
 
-  max_buf = (end + 29) / 30;
-  buffer_words = (end + (30*sizeof(WTYPE)) - 1) / (30*sizeof(WTYPE));
+  max_buf = (end/30) + ((end%30) != 0);
+  buffer_words = (max_buf + sizeof(WTYPE) - 1) / sizeof(WTYPE);
   mem = (unsigned char*) calloc( buffer_words, sizeof(WTYPE) );
   if (mem == 0) {
     croak("allocation failure in sieve_erat30: could not alloc %lu bytes", (unsigned long)(buffer_words*sizeof(WTYPE)));
@@ -504,7 +516,8 @@ unsigned char* sieve_erat30(WTYPE end)
     if ( d < max_buf )  mem[d++] = 0x40;
     assert(d >= max_buf);
   }
-  for (prime = 11; (prime*prime) <= end; prime = next_prime_in_sieve(mem,prime)) {
+  limit = sqrt((double) end);  /* prime*prime can overflow */
+  for (prime = 11; prime <= limit; prime = next_prime_in_sieve(mem,prime)) {
     WTYPE d = (prime*prime)/30;
     WTYPE m = (prime*prime) - d*30;
     WTYPE dinc = (2*prime)/30;
@@ -722,7 +735,7 @@ int find_best_prime_pair(WTYPE val, int adder, int* a, int* b)
         int p1 = i + adder;
         int p2 = j - i + adder;
         int glen = gamma_length(p1) + gamma_length(p2);
-        if (glen < bestlen) {
+        if (glen <= bestlen) { /* Prefer a smaller j */
           *a = p1;
           *b = p2;
           bestlen = glen;

@@ -1342,9 +1342,14 @@ void put_goldbach_g1 (BitList *list, WTYPE value)
 {
   int i, j;
 
+  if (value >= (W_FFFF>>1)) {
+    croak("value %lu out of range 0 - %lu", (unsigned long)value, (unsigned long)(W_FFFF>>1));
+    return;
+  }
   value = (value+1) * 2;
+
   if (!find_best_prime_pair(value, 0, &i, &j)) {
-    croak("value out of range");
+    croak("value %lu out of range", (unsigned long)value);
     return;
   }
   put_gamma(list, (WTYPE)i);
@@ -1395,9 +1400,14 @@ void put_goldbach_g2 (BitList *list, WTYPE value)
   if (value == W_ZERO) { swrite(list, 3, W_CONST(6)); return; }
   if (value == W_ONE ) { swrite(list, 3, W_CONST(7)); return; }
 
-  /* TODO: encode ~0 */
+  /* Encode 32-bit ~0 by hand to avoid overflow issues */
+  if (value == 0xFFFFFFFF) {
+    put_gamma(list, 105097509);
+    put_gamma(list, 122);
+    return;
+  }
   if (value == W_FFFF) {
-    croak("code error: Goldbach G2 overflow");
+    croak("value %lu out of range 0 - %lu", (unsigned long)value, (unsigned long)W_FFFF-1);
     return;
   }
   value++;
