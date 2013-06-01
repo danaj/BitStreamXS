@@ -344,7 +344,7 @@ read_string(IN Data::BitStream::XS list, IN int bits)
       XSRETURN_UNDEF;
     } else {
       RETVAL = newSVpvn(buf, bits);
-      free(buf);
+      Safefree(buf);
     }
   OUTPUT:
     RETVAL
@@ -361,7 +361,7 @@ to_raw(IN Data::BitStream::XS list)
       /* Return just the necessary number of bytes */
       size_t bytes = NBYTES(list->len);
       RETVAL = newSVpvn(buf, bytes);
-      free(buf);
+      Safefree(buf);
     }
   OUTPUT:
     RETVAL
@@ -801,7 +801,7 @@ get_startstop(IN Data::BitStream::XS list, IN SV* p, IN int count = 1)
     }
     /* TODO: we'll skip free in some croak conditions */
     GET_CODEP(startstop, map);
-    free(map);
+    Safefree(map);
 
 void
 put_startstop(IN Data::BitStream::XS list, IN SV* p, ...)
@@ -812,7 +812,7 @@ put_startstop(IN Data::BitStream::XS list, IN SV* p, ...)
     if (map == 0)
        return;
     PUT_CODEVP(startstop, 1, list, map);
-    free(map);
+    Safefree(map);
 
 
 
@@ -909,7 +909,7 @@ segment_primes(IN UV low, IN UV high, IN UV segment_size = 65536UL)
     if (low < 7)  low = 7;
     if (low <= high) {
       /* Call the segment siever one or more times */
-      sieve = (unsigned char*) malloc( segment_size );
+      New(0, sieve, segment_size, unsigned char);
       if (sieve == 0)
         croak("Could not allocate %lu bytes for segment sieve", segment_size);
       while (low <= high) {
@@ -934,7 +934,7 @@ segment_primes(IN UV low, IN UV high, IN UV segment_size = 65536UL)
 
         low = seghigh+2;
       }
-      free(sieve);
+      Safefree(sieve);
     }
     RETVAL = newRV_noinc( (SV*) av );
   OUTPUT:
@@ -958,7 +958,7 @@ erat_primes(IN UV low, IN UV high)
         START_DO_FOR_EACH_SIEVE_PRIME( sieve, low, high ) {
            av_push(av,newSVuv(p));
         } END_DO_FOR_EACH_SIEVE_PRIME
-        free(sieve);
+        Safefree(sieve);
       }
     }
     RETVAL = newRV_noinc( (SV*) av );
@@ -986,7 +986,7 @@ erat_simple_primes(IN UV low, IN UV high)
             av_push(av,newSVuv( 2*s+1 ));
           }
         }
-        free(sieve);
+        Safefree(sieve);
       }
     }
     RETVAL = newRV_noinc( (SV*) av );

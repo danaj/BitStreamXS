@@ -140,7 +140,8 @@ BitList *new(
   int         initial_bits
 )
 {
-  BitList *list = (BitList *) malloc(sizeof (BitList));
+  BitList *list = 0;
+  New(0, list, 1, BitList);
   if (list == 0)
     return list;
 
@@ -185,14 +186,14 @@ int resize(BitList *list, int bits)
   if (bits == 0) {
     /* erase everything */
     if (list->data != 0) {
-      free(list->data);
+      Safefree(list->data);
       list->data = 0;
     }
   } else {
     /* Grow or shrink */
     int oldwords = NWORDS(list->maxlen);
     int newwords = NWORDS(bits);
-    list->data = (WTYPE*) realloc(list->data, newwords * sizeof(WTYPE));
+    Renew(list->data, newwords, WTYPE);
     if (list->data == 0) {
       croak("allocation failure: could not alloc %d bits", bits);
     } else if (newwords > oldwords) {
@@ -215,9 +216,9 @@ void DESTROY(BitList *list)
     croak("null object");
   } else {
     if (list->is_writing)        write_close(list);
-    if (list->data != 0)         free(list->data);
-    if (list->file_header != 0)  free(list->file_header);
-    free(list);
+    if (list->data != 0)         Safefree(list->data);
+    if (list->file_header != 0)  Safefree(list->file_header);
+    Safefree(list);
   }
 }
 
@@ -271,12 +272,14 @@ void read_open(BitList *list)
       int hline;
       int maxbytes = 1024 * list->file_header_lines;
       int nbytes = 0;
-      char* hbuf = (char*) malloc(maxbytes);
-      char* hptr = hbuf;
+      char* hbuf;
+      char* hptr;
+      New(0, hbuf, maxbytes, char);
       if (hbuf == 0) {
         croak("allocation failure in read_open: could not alloc %d bytes", maxbytes);
         return;
       }
+      hptr = hbuf;
       for (hline = 0; hline < list->file_header_lines; hline++) {
         char* fresult;
         int len;
@@ -295,13 +298,13 @@ void read_open(BitList *list)
         hptr += len;
         nbytes += len;
       }
-      hbuf = (char*) realloc(hbuf, nbytes+1);
+      Renew(hbuf, nbytes+1, char);
       if (hbuf == 0) {
         croak("allocation failure in read_open: could not realloc %d bytes", nbytes+1);
         return;
       }
       if (list->file_header != 0)
-        free( (void*) list->file_header );
+        Safefree( (void*) list->file_header );
       list->file_header = hbuf;
     }
     /* Read the number of bits */
@@ -315,7 +318,8 @@ void read_open(BitList *list)
     list->len = 0;
     {
       size_t total_bytes = 0;
-      char* buf = (char*) malloc(16384 * sizeof(char));
+      char* buf;
+      New(0, buf, 16384, char);
       if (buf == 0) {
         croak("allocation failure in read_open: could not alloc %d bytes", 16384);
         return;
@@ -329,7 +333,7 @@ void read_open(BitList *list)
           swrite(list, 8, *bptr++);
         }
       }
-      free(buf);
+      Safefree(buf);
       if (total_bytes != NBYTES(bits)) {
         croak("Read %d bytes, expected %lu", total_bytes, NBYTES(bits));
         fclose(fh);
@@ -371,7 +375,7 @@ void write_close(BitList *list)
         fprintf(fh, "%d\n", list->len);
         fwrite(buf, 1, NBYTES(list->len), fh);
       }
-      free(buf);
+      Safefree(buf);
       fclose(fh);
     }
     list->is_writing = 0;
@@ -553,7 +557,7 @@ char* read_string(BitList *list, int bits)
   assert(bits >= 0);
   assert( list->pos < list->len );
   assert (bits <= (list->len - list->pos));
-  buf = (char*) malloc(bits+1);
+  New(0, buf, bits+1, char);
   if (buf == 0) {
     croak("allocation failure in read_string: could not alloc %d bits", bits+1);
     return 0;
@@ -613,7 +617,8 @@ char* read_string(BitList *list, int bits)
 char* to_raw(BitList *list)
 {
   int bytes = NBYTES(list->len);
-  char* buf = (char*) malloc(bytes);
+  char* buf;
+  New(0, buf, bytes, char);
   if (buf != 0) {
     char* bptr = buf;
     int b;
@@ -1984,7 +1989,7 @@ char* make_startstop_prefix_map(SV* paramref)
     return 0;
   }
 
-  map = (startstop_map_entry*) malloc(nparams * sizeof(startstop_map_entry));
+  New(0, map, nparams, startstop_map_entry);
   if (map == 0) {
     croak("allocation failure in startstop");
     return 0;
@@ -2002,7 +2007,7 @@ char* make_startstop_prefix_map(SV* paramref)
     SV** step_sv = av_fetch((AV *)SvRV(paramref), p, 0);
     if ( (step_sv == 0) || (SvIV(*step_sv) < 0) ) {
       croak("invalid parameters: startstop step");
-      free(map);
+      Safefree(map);
       return 0;
     }
     step = (*step_sv != &PL_sv_undef)  ?  SvIV(*step_sv)  :  BITS_PER_WORD;

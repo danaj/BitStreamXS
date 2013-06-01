@@ -51,5 +51,3 @@
 - get rid of all the sequence stuff that absolutely required.
 
 - use UV instead of int.
-
-- New/Safefree instead of malloc/free
