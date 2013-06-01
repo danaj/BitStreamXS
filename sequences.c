@@ -582,7 +582,7 @@ int sieve_segment(unsigned char* mem, WTYPE startd, WTYPE endd)
   START_DO_FOR_EACH_SIEVE_PRIME(sieve, 7, pcsize)
   {
     /* p increments from 7 to at least sqrt(endp) */
-    WTYPE p2 = p*p;
+    WTYPE p2 = p*p;   /* TODO: overflow */
     if (p2 >= endp)  break;
     /* Find first multiple of p greater than p*p and larger than startp */
     if (p2 < startp) {

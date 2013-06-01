@@ -16,6 +16,7 @@ WriteMakefile1(
                       'Test::More'       => '0.45',
                       'Exporter'         => '5.562',
                       'XSLoader'         => '0.01',
+                      'Carp'             => 0,
                     },
     META_MERGE   => {
                       recommends => { 'Data::BitStream' => 0, },

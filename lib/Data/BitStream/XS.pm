@@ -1,5 +1,5 @@
 package Data::BitStream::XS;
-# Tested with Perl 5.6.2 through 5.15.2.
+# Tested with Perl 5.6.2 through 5.16.0
 # Tested on 32-bit big-endian and 64-bit little endian
 use strict;
 use warnings;
@@ -7,7 +7,7 @@ use Carp qw/croak confess/;
 
 BEGIN {
   $Data::BitStream::XS::AUTHORITY = 'cpan:DANAJ';
-  $Data::BitStream::XS::VERSION = '0.07';
+  $Data::BitStream::XS::VERSION = '0.08';
 }
 
 # parent is cleaner, and in the Perl 5.10.1 / 5.12.0 core, but not earlier.
@@ -469,7 +469,7 @@ sub primes {
     } elsif ($high > (32*1024*1024*30)) {
       $method = 'Segment';
 
-    # Only want half or less of the range 2-high ?
+    # Only want half or less of the range low-high ?
     } elsif ( int($high / ($high-$low)) >= 2 ) {
       $method = 'Segment';
 
@@ -509,7 +509,7 @@ Data::BitStream::XS - A bit stream class including integer coding methods
 
 =head1 VERSION
 
-version 0.07
+version 0.08
 
 
 =head1 SYNOPSIS
@@ -1275,7 +1275,7 @@ Returns the value of the nth prime, for C<n E<gt>= 1>.  Note that:
 
   nth_prime(prime_count(n)+1) = next_prime(n)
 
-for all <n E<gt>= 1>.
+for all C<n E<gt>= 1>.
 
 
 =item B<sieve_primes>
