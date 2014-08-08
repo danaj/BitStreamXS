@@ -111,7 +111,6 @@ static WTYPE call_get_sub(SV* self, SV* code, BitList* list)
 static void call_put_sub(SV* self, SV* code, BitList* list, WTYPE value)
 {
   dSP;
-  int count;
 
   ENTER;
   SAVETMPS;
@@ -121,7 +120,7 @@ static void call_put_sub(SV* self, SV* code, BitList* list, WTYPE value)
   XPUSHs(sv_2mortal(newSVuv(value)));
   PUTBACK;
 
-  count = call_sv(code, G_VOID);
+  (void) call_sv(code, G_VOID);
   SPAGAIN;
 
   PUTBACK;
@@ -140,9 +139,8 @@ BitList *new(
   int         initial_bits
 )
 {
-  BitList *list = (BitList *) malloc(sizeof (BitList));
-  if (list == 0)
-    return list;
+  BitList* list;
+  New(0, list, 1, BitList);
 
   list->data = 0;
   list->pos = 0;
@@ -185,17 +183,15 @@ int resize(BitList *list, int bits)
   if (bits == 0) {
     /* erase everything */
     if (list->data != 0) {
-      free(list->data);
+      Safefree(list->data);
       list->data = 0;
     }
   } else {
     /* Grow or shrink */
     int oldwords = NWORDS(list->maxlen);
     int newwords = NWORDS(bits);
-    list->data = (WTYPE*) realloc(list->data, newwords * sizeof(WTYPE));
-    if (list->data == 0) {
-      croak("allocation failure: could not alloc %d bits", bits);
-    } else if (newwords > oldwords) {
+    Renew(list->data, newwords, WTYPE);
+    if (newwords > oldwords) {
       /* Zero out any new allocated space */
       memset( list->data + oldwords,  0,  (newwords-oldwords)*sizeof(WTYPE) );
     }
@@ -215,9 +211,9 @@ void DESTROY(BitList *list)
     croak("null object");
   } else {
     if (list->is_writing)        write_close(list);
-    if (list->data != 0)         free(list->data);
-    if (list->file_header != 0)  free(list->file_header);
-    free(list);
+    if (list->data != 0)         Safefree(list->data);
+    if (list->file_header != 0)  Safefree(list->file_header);
+    Safefree(list);
   }
 }
 
@@ -271,13 +267,10 @@ void read_open(BitList *list)
       int hline;
       int maxbytes = 1024 * list->file_header_lines;
       int nbytes = 0;
-      char* hbuf = (char*) malloc(maxbytes);
-      char* hptr = hbuf;
-      if (hbuf == 0) {
-        croak("allocation failure in read_open: could not alloc %d bytes", maxbytes);
-        return;
-      }
-      for (hline = 0; hline < list->file_header_lines; hline++) {
+      char *hbuf, *hptr;
+
+      New(0, hbuf, maxbytes, char);
+      for (hline = 0, hptr = hbuf; hline < list->file_header_lines; hline++) {
         char* fresult;
         int len;
         if (nbytes >= maxbytes) {
@@ -295,13 +288,9 @@ void read_open(BitList *list)
         hptr += len;
         nbytes += len;
       }
-      hbuf = (char*) realloc(hbuf, nbytes+1);
-      if (hbuf == 0) {
-        croak("allocation failure in read_open: could not realloc %d bytes", nbytes+1);
-        return;
-      }
+      Renew(hbuf, nbytes+1, char);
       if (list->file_header != 0)
-        free( (void*) list->file_header );
+        Safefree( (void*) list->file_header );
       list->file_header = hbuf;
     }
     /* Read the number of bits */
@@ -315,12 +304,8 @@ void read_open(BitList *list)
     list->len = 0;
     {
       size_t total_bytes = 0;
-      char* buf = (char*) malloc(16384 * sizeof(char));
-      if (buf == 0) {
-        croak("allocation failure in read_open: could not alloc %d bytes", 16384);
-        return;
-      }
-      assert(buf != 0);
+      char* buf;
+      New(0, buf, 16384, char);
       while (!feof(fh)) {
         char* bptr = buf;
         size_t bytes = fread(buf, sizeof(char), 16384, fh);
@@ -329,7 +314,7 @@ void read_open(BitList *list)
           swrite(list, 8, *bptr++);
         }
       }
-      free(buf);
+      Safefree(buf);
       if (total_bytes != NBYTES(bits)) {
         croak("Read %d bytes, expected %lu", total_bytes, NBYTES(bits));
         fclose(fh);
@@ -371,7 +356,7 @@ void write_close(BitList *list)
         fprintf(fh, "%d\n", list->len);
         fwrite(buf, 1, NBYTES(list->len), fh);
       }
-      free(buf);
+      Safefree(buf);
       fclose(fh);
     }
     list->is_writing = 0;
@@ -553,11 +538,7 @@ char* read_string(BitList *list, int bits)
   assert(bits >= 0);
   assert( list->pos < list->len );
   assert (bits <= (list->len - list->pos));
-  buf = (char*) malloc(bits+1);
-  if (buf == 0) {
-    croak("allocation failure in read_string: could not alloc %d bits", bits+1);
-    return 0;
-  }
+  New(0, buf, bits+1, char);
 #if 0
   /* Simple code */
   int b;
@@ -613,7 +594,8 @@ char* read_string(BitList *list, int bits)
 char* to_raw(BitList *list)
 {
   int bytes = NBYTES(list->len);
-  char* buf = (char*) malloc(bytes);
+  char* buf;
+  New(0, buf, bytes, char);
   if (buf != 0) {
     char* bptr = buf;
     int b;
@@ -627,12 +609,12 @@ char* to_raw(BitList *list)
 }
 void put_raw(BitList *list, const char* str, int bits)
 {
+  const char* bptr = str;
+  int bytes = bits / 8;
   if ( (str == 0) || (bits < 0) ) {
     croak("invalid input to put_raw");
     return;
   }
-  const char* bptr = str;
-  int bytes = bits / 8;
   while (bytes-- > 0) {
     swrite(list, 8, *bptr++);
   }
@@ -1037,9 +1019,9 @@ WTYPE get_fib (BitList *list)
 
 void put_fib (BitList *list, WTYPE value)
 {
-  MAKE_BITSTACK;
   int s;
   WTYPE v;
+  MAKE_BITSTACK;
 
   if (value < 2) {
     swrite(list, 2+value, W_CONST(3));
@@ -1184,12 +1166,12 @@ void put_fibgen (BitList *list, int m, WTYPE value)
   } else if (value == 1) {
     swrite(list, m+1, term);
   } else {
-    MAKE_BITSTACK;
     WTYPE* fv = &(fibm_val[m-2][0]);
     WTYPE* fs = &(fibm_sum[m-2][0]);
     int fmax = fibm_max[m-2];
     int s;
     WTYPE v;
+    MAKE_BITSTACK;
 
     s = 1;
     while ( (s <= fmax) && (value > fs[s]))
@@ -1242,8 +1224,8 @@ WTYPE get_levenstein (BitList *list)
 
 void put_levenstein (BitList *list, WTYPE value)
 {
-  MAKE_BITSTACK;
   int ngroups = 1;
+  MAKE_BITSTACK;
 
   if (value == W_ZERO) {
     swrite(list, 1, 0);
@@ -1642,8 +1624,8 @@ WTYPE get_comma (BitList *list, int k)
 }
 void  put_comma (BitList *list, int k, WTYPE value)
 {
-  MAKE_BITSTACK;
   WTYPE comma, base;
+  MAKE_BITSTACK;
 
   assert(k >= 1);
   assert(k <= 16);
@@ -1707,10 +1689,10 @@ WTYPE get_block_taboo (BitList *list, int bits, WTYPE taboo)
 }
 void  put_block_taboo (BitList *list, int bits, WTYPE taboo, WTYPE value)
 {
-  MAKE_BITSTACK;
   WTYPE base, basemult;
   WTYPE baseval = 1;
   int nchunks = 1;
+  MAKE_BITSTACK;
 
   assert( (bits >= 1) && (bits <= 16) );
 
@@ -1984,11 +1966,7 @@ char* make_startstop_prefix_map(SV* paramref)
     return 0;
   }
 
-  map = (startstop_map_entry*) malloc(nparams * sizeof(startstop_map_entry));
-  if (map == 0) {
-    croak("allocation failure in startstop");
-    return 0;
-  }
+  New(0, map, nparams, startstop_map_entry);
 
   prefix_size = nparams-1;
   prefix_cmp = W_ONE << prefix_size;
@@ -2002,7 +1980,7 @@ char* make_startstop_prefix_map(SV* paramref)
     SV** step_sv = av_fetch((AV *)SvRV(paramref), p, 0);
     if ( (step_sv == 0) || (SvIV(*step_sv) < 0) ) {
       croak("invalid parameters: startstop step");
-      free(map);
+      Safefree(map);
       return 0;
     }
     step = (*step_sv != &PL_sv_undef)  ?  SvIV(*step_sv)  :  BITS_PER_WORD;

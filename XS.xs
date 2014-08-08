@@ -340,12 +340,8 @@ read_string(IN Data::BitStream::XS list, IN int bits)
     if (bits > (list->len - list->pos))
       { croak("short read"); XSRETURN_UNDEF; }
     buf = read_string(list, bits);
-    if (buf == 0) {
-      XSRETURN_UNDEF;
-    } else {
-      RETVAL = newSVpvn(buf, bits);
-      free(buf);
-    }
+    RETVAL = newSVpvn(buf, bits);
+    Safefree(buf);
   OUTPUT:
     RETVAL
 
@@ -355,14 +351,10 @@ to_raw(IN Data::BitStream::XS list)
     char* buf;
   CODE:
     buf = to_raw(list);
-    if (buf == 0) {
-      XSRETURN_UNDEF;
-    } else {
-      /* Return just the necessary number of bytes */
-      size_t bytes = NBYTES(list->len);
-      RETVAL = newSVpvn(buf, bytes);
-      free(buf);
-    }
+    /* Return just the necessary number of bytes */
+    size_t bytes = NBYTES(list->len);
+    RETVAL = newSVpvn(buf, bytes);
+    Safefree(buf);
   OUTPUT:
     RETVAL
 
@@ -801,7 +793,7 @@ get_startstop(IN Data::BitStream::XS list, IN SV* p, IN int count = 1)
     }
     /* TODO: we'll skip free in some croak conditions */
     GET_CODEP(startstop, map);
-    free(map);
+    Safefree(map);
 
 void
 put_startstop(IN Data::BitStream::XS list, IN SV* p, ...)
@@ -812,7 +804,7 @@ put_startstop(IN Data::BitStream::XS list, IN SV* p, ...)
     if (map == 0)
        return;
     PUT_CODEVP(startstop, 1, list, map);
-    free(map);
+    Safefree(map);
 
 
 
@@ -857,7 +849,6 @@ _get_prime_cache_size()
 SV*
 sieve_primes(IN UV low, IN UV high)
   PREINIT:
-    WTYPE  s;
     const unsigned char* sieve;
     AV* av = newAV();
   CODE:
@@ -909,9 +900,7 @@ segment_primes(IN UV low, IN UV high, IN UV segment_size = 65536UL)
     if (low < 7)  low = 7;
     if (low <= high) {
       /* Call the segment siever one or more times */
-      sieve = (unsigned char*) malloc( segment_size );
-      if (sieve == 0)
-        croak("Could not allocate %lu bytes for segment sieve", segment_size);
+      New(0, sieve, segment_size, unsigned char);
       while (low <= high) {
         WTYPE seghigh = ((high/30 - low/30) < segment_size)
                           ?  high
@@ -934,7 +923,7 @@ segment_primes(IN UV low, IN UV high, IN UV segment_size = 65536UL)
 
         low = seghigh+2;
       }
-      free(sieve);
+      Safefree(sieve);
     }
     RETVAL = newRV_noinc( (SV*) av );
   OUTPUT:
@@ -948,18 +937,14 @@ erat_primes(IN UV low, IN UV high)
   CODE:
     if (low <= high) {
       sieve = sieve_erat30(high);
-      if (sieve == 0) {
-        croak("Could not generate sieve for %lu", high);
-      } else {
-        if ((low <= 2) && (high >= 2)) { av_push(av, newSVuv( 2 )); }
-        if ((low <= 3) && (high >= 3)) { av_push(av, newSVuv( 3 )); }
-        if ((low <= 5) && (high >= 5)) { av_push(av, newSVuv( 5 )); }
-        if (low < 7) { low = 7; }
-        START_DO_FOR_EACH_SIEVE_PRIME( sieve, low, high ) {
-           av_push(av,newSVuv(p));
-        } END_DO_FOR_EACH_SIEVE_PRIME
-        free(sieve);
-      }
+      if ((low <= 2) && (high >= 2)) { av_push(av, newSVuv( 2 )); }
+      if ((low <= 3) && (high >= 3)) { av_push(av, newSVuv( 3 )); }
+      if ((low <= 5) && (high >= 5)) { av_push(av, newSVuv( 5 )); }
+      if (low < 7) { low = 7; }
+      START_DO_FOR_EACH_SIEVE_PRIME( sieve, low, high ) {
+         av_push(av,newSVuv(p));
+      } END_DO_FOR_EACH_SIEVE_PRIME
+      Safefree(sieve);
     }
     RETVAL = newRV_noinc( (SV*) av );
   OUTPUT:
@@ -975,19 +960,15 @@ erat_simple_primes(IN UV low, IN UV high)
   CODE:
     if (low <= high) {
       sieve = sieve_erat(high);
-      if (sieve == 0) {
-        croak("Could not generate sieve for %ld", high);
-      } else {
-        if (low <= 2) { av_push(av, newSVuv( 2 )); low = 3; }
-        low  = low/2;
-        high = (high-1)/2;
-        for (s = low; s <= high; s++) {
-          if ( ! IS_SET_ARRAY_BIT(sieve, s) ) {
-            av_push(av,newSVuv( 2*s+1 ));
-          }
+      if (low <= 2) { av_push(av, newSVuv( 2 )); low = 3; }
+      low  = low/2;
+      high = (high-1)/2;
+      for (s = low; s <= high; s++) {
+        if ( ! IS_SET_ARRAY_BIT(sieve, s) ) {
+          av_push(av,newSVuv( 2*s+1 ));
         }
-        free(sieve);
       }
+      Safefree(sieve);
     }
     RETVAL = newRV_noinc( (SV*) av );
   OUTPUT:

@@ -60,7 +60,7 @@ WTYPE get_prime_cache(WTYPE n, const unsigned char** sieve)
   if (prime_cache_size < n) {
 
     if (prime_cache_sieve != 0)
-      free(prime_cache_sieve);
+      Safefree(prime_cache_sieve);
     prime_cache_size = 0;
 
     /* Sieve a bit more than asked, to mitigate thrashing */
@@ -467,11 +467,7 @@ WTYPE* sieve_erat(WTYPE end)
   size_t n, s;
   size_t last = (end+1)/2;
 
-  mem = (WTYPE*) calloc( NWORDS(last), sizeof(WTYPE) );
-  if (mem == 0) {
-    croak("allocation failure in sieve_erat: could not alloc %lu bits", (unsigned long)last);
-    return 0;
-  }
+  Newz(0, mem, NWORDS(last), WTYPE);
 
   n = 3;
   while ( (n*n) <= end) {
@@ -495,11 +491,7 @@ unsigned char* sieve_erat30(WTYPE end)
 
   max_buf = (end/30) + ((end%30) != 0);
   buffer_words = (max_buf + sizeof(WTYPE) - 1) / sizeof(WTYPE);
-  mem = (unsigned char*) calloc( buffer_words, sizeof(WTYPE) );
-  if (mem == 0) {
-    croak("allocation failure in sieve_erat30: could not alloc %lu bytes", (unsigned long)(buffer_words*sizeof(WTYPE)));
-    return 0;
-  }
+  Newz(0, mem, sizeof(WTYPE) * buffer_words, unsigned char);
 
   /* Shortcut to mark 7.  Just an optimization. */
   if ( (7*7) <= end ) {
