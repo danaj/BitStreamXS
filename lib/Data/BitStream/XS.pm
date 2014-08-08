@@ -13,12 +13,9 @@ BEGIN {
 # parent is cleaner, and in the Perl 5.10.1 / 5.12.0 core, but not earlier.
 # use parent qw( Exporter );
 use base qw( Exporter );
-our @EXPORT_OK = qw(
+our @EXPORT_OK = qw( 
                      code_is_supported code_is_universal
-                     is_prime  next_prime  primes
-                     prime_init prime_count
-                     prime_count_lower  prime_count_upper  prime_count_approx
-                     nth_prime
+                     prime_count nth_prime is_prime
                    );
 
 BEGIN {
@@ -29,7 +26,7 @@ BEGIN {
     1;
   } or do {
     # We could insert a Pure Perl implementation here.
-    croak "XS Code not available";
+    croak "XS Code not available: $@";
   }
 }
 
@@ -433,62 +430,6 @@ sub code_get {
 #                               CLASS METHODS
 #
 ################################################################################
-
-sub primes {
-  my $optref = {};  $optref = shift if ref $_[0] eq 'HASH';
-  croak "no parameters to primes" unless scalar @_ > 0;
-  croak "too many parameters to primes" unless scalar @_ <= 2;
-  my $low = (@_ == 2)  ?  shift  :  2;
-  my $high = shift;
-  my $sref = [];
-
-  # Validate parameters
-  if ( (!defined $low) || (!defined $high) ||
-       #($low < 0) || ($high < 0) ||
-       ($low =~ tr/0123456789//c) || ($high =~ tr/0123456789//c)
-     ) {
-    croak "Parameters must be positive integers";
-  }
-  return $sref if ($low > $high) || ($high < 2);
-
-  my $method = $optref->{'method'};
-  $method = 'Dynamic' unless defined $method;
-
-  if ($method =~ /^(Dyn\w*|Default|Generate)$/i) {
-    # Dynamic -- we should try to do something smart.
-
-    # Tiny range?
-    if (($low+1) >= $high) {
-      $method = 'Trial';
-
-    # Fast for cached sieve?
-    } elsif (($high <= (65536*30)) || ($high <= _get_prime_cache_size)) {
-      $method = 'Sieve';
-
-    # More memory than we should reasonably use for base sieve?
-    } elsif ($high > (32*1024*1024*30)) {
-      $method = 'Segment';
-
-    # Only want half or less of the range low-high ?
-    } elsif ( int($high / ($high-$low)) >= 2 ) {
-      $method = 'Segment';
-
-    } else {
-      $method = 'Sieve';
-    }
-  }
-
-  if    ($method =~ /^Trial$/i)     { $sref = trial_primes($low, $high); }
-  elsif ($method =~ /^Erat\w*$/i)   { $sref = erat_primes($low, $high); }
-  elsif ($method =~ /^Simple\w*$/i) { $sref = erat_simple_primes($low, $high); }
-  elsif ($method =~ /^Seg\w*$/i)    { $sref = segment_primes($low, $high); }
-  elsif ($method =~ /^Sieve$/i)     { $sref = sieve_primes($low, $high); }
-  else { croak "Unknown prime method: $method"; }
-
-  #return (wantarray) ? @{$sref} : $sref;
-  return $sref;
-}
-
 
 1;
 
@@ -1162,109 +1103,11 @@ approximately equal to the code used by L<Math::Prime::XS> version 0.26
 (the algorithms are identical).  The algorithm may be changed.
 
 
-=item B<next_prime($n)>
-
-Given an unsigned integer C<n>, returns the next prime number.  If we have
-sieve data (e.g. from C<prime_init> or if it is a small number), then that
-is used.  Otherwise, C<is_prime> is called for each number greater than
-C<n> (skipping multiples of 2, 3, and 5) until a prime is found.  No extra
-memory is used during the process.
-
-The number returned will always be greater than C<n>, barring any possibility
-of unsigned long overflow.
-
-Note that the sequence of primes starts with 2, 3, 5, 7, ...
-
-
-=item B<primes($high)>
-
-=item B<primes($low, $high)>
-
-Returns a reference to an array of all primes in the range C<low> to C<high>
-inclusive, with C<low> being 2 if not given.  The algorithm used is subject
-to change and may be dynamic depending on the range.  This will do caching
-so successive calls within the range will be faster.
-
-At this time, it is the fastest prime generator on CPAN to my knowledge, and
-will use less memory for sieving.  For sieving the first primes below C<10^10>
-(10 billion), it is about 2x faster than L<Math::Prime::FastSieve> 0.12,
-and over 10x faster than L<Math::Prime::XS>.  For small numbers, e.g. less
-than C<10^6> (1 million), the difference is 1.1x - 1.5x at most, so it really
-doesn't matter which XS module you use.  Lastly, while the siever included
-here is pretty efficient, it isn't state of the art by any means, and is
-significantly slower than several freely available non-Perl packages.  In
-particular, both primesieve and Tomás Oliveira e Silva's segmented siever
-are much faster.
-
-Using the default method, no more than 32MB of internal memory will be used
-for any range where C<high E<lt> 10^18>, making it by far the most memory
-efficient sieving solution on CPAN.  It should remain under C<140MB> for
-any 64-bit ranges allowed.  Note that far more memory will be used by the
-return array reference if a large range is given.  It will be more efficient
-to loop over reasonable size ranges (and call C<prime_init> with the square
-root of the maximum C<high> if you want to avoid possible recalculation of
-the base sieve).
-
-
-=item B<primes({method=>$method}, $low, $high)>
-
-An optional set of options can be given to the primes function as a hash
-reference in the first parameter.  Currently only C<method> is used, and
-possible values are:
-
-    Dynamic    Whatever is most efficient, including caching.
-    Erat       Uncached efficient Sieve of Eratosthenes
-    Simple     Uncached simple Sieve of Eratosthenes
-    Trial      Uncached trial division.
-    Segment    Uncached segmented sieve
-    Sieve      Cached efficient Sieve of Eratosthenes
-
-The default method is C<Dynamic>, where the actual operation will depend on
-the base and range.
-
-
-=item B<prime_init($n)>
-
-Precalculates anything necessary to do fast calls for operations within the
-range up to C<n>.  Not necessary, but very helpful if doing repeated calls to
-methods like C<is_prime>, C<prime_count>, and C<primes> with increasing C<n>.
-
-
 =item B<prime_count($n)>
 
 Returns the Prime Count function C<Pi(n)>.  The current implementation relies
 on sieving to find the primes within the interval, so will take some time and
-memory.  There are slightly faster ways to handle the sieving (e.g. maintain
-a list of counts from C<2 - j> for various C<j>, then do a segmented sieve
-between C<j> and C<n>), and for very large numbers the methods of Meissel,
-Lehmer, or Lagarias-Miller-Odlyzko-Deleglise-Rivat may be appropriate.
-
-
-=item B<prime_count_upper($n)>
-
-=item B<prime_count_lower($n)>
-
-Return bounds on the upper and lower limits, respectively, for the Prime
-Count function C<Pi(n)>.  These estimates should be very good for numbers
-under 2^32, but over that they fall back to the proven Dusart bounds of
-
-    x/logx * (1 + 1/logx + 1.80/log^2x) <= Pi(x)
-
-    x/logx * (1 + 1/logx + 2.51/log^2x) >= Pi(x)
-
-which are looser than the trial-verified values, but much, much, much
-better than simple bounds such as
-
-    x/logx <= Pi(x) <= 1.25506x/logx
-
-shown on the Wikipedia Prime-counting function page.
-
-
-=item B<prime_count_approx($n)>
-
-Returns an approximation to the Prime Count function C<Pi(n)>.  Currently this
-is just an average of the upper and lower bounds, but note that this is within
-C<9> for all C<n E<lt> 15_809> and within C<50> for all C<n E<lt> 1_763_367>.
+memory.
 
 
 =item B<nth_prime($n)>
@@ -1278,20 +1121,11 @@ Returns the value of the nth prime, for C<n E<gt>= 1>.  Note that:
 for all C<n E<gt>= 1>.
 
 
-=item B<sieve_primes>
+=item B<prime_init($n)>
 
-=item B<erat_primes>
-
-=item B<erat_simple_primes>
-
-=item B<trial_primes>
-
-=item B<segment_primes>
-
-Methods for specific sieving: cached sieve, efficient Sieve of
-Eratosthenes, simple Sieve of Eratosthenes, trial division, and segmented
-sieve.  These will likely disappear in a future version, so use the C<method>
-argument to C<primes> instead.
+Precalculates anything necessary to do fast calls for operations within the
+range up to C<n>.  Not necessary, but helpful with performance when doing
+repeated calls with increasing C<n>.
 
 =back
 
@@ -1341,6 +1175,8 @@ argument to C<primes> instead.
 
 =item L<Data::BitStream::Code::ARice>
 
+=item L<Math::Prime::Util>
+
 =back
 
 
@@ -1365,7 +1201,7 @@ used in my wheel sieve.
 
 =head1 COPYRIGHT
 
-Copyright 2011-2012 by Dana Jacobsen E<lt>dana@acm.orgE<gt>
+Copyright 2011-2014 by Dana Jacobsen E<lt>dana@acm.orgE<gt>
 
 This program is free software; you can redistribute it and/or modify it under the same terms as Perl itself.
 

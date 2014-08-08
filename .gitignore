@@ -1,0 +1,10 @@
+Data-BitStream-XS-*.tar.gz
+Makefile
+Makefile.old
+MYMETA.*
+XS.bs
+pm_to_blib
+XS.[co]
+bitlist.o
+sequences.o
+blib*

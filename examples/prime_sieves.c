@@ -91,6 +91,11 @@ static WTYPE next_prime(WTYPE x)
  * Timings for counting the first 10^10 (10B) primes, in seconds.
  * Pi(10^10) = 455,052,511
  *
+ * Note:  These numbers are old -- Math::Prime::Util has much faster
+ *        segment sieving now (faster than primegen), and the LMO prime
+ *        count is ridiculously fast compared to sieving (it takes only
+ *        a few milliseconds).
+ *
  *     1.9  primesieve 3.6 (even faster with multiple threads)
  *     5.6  Tomás Oliveira e Silva's segmented sieve v2 (Sep 2010)
  *     6.6  primegen (optimized Sieve of Atkin)
