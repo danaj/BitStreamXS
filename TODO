@@ -44,10 +44,6 @@
   when running on 32-bit Perl.  In fact, all the primes code should be examined
   for possible overflow issues.
 
-- primecount snd nth hould use segment when possible
-
 - Use proper print/croak % macros instead of %lu etc.
-
-- get rid of all the sequence stuff that absolutely required.
 
 - use UV instead of int.

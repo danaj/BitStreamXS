@@ -45,22 +45,24 @@
   typedef U64TYPE WTYPE;
   #define W_CONST(c)  U64_CONST(c)
   #define WTYPE_IS_64BIT   1
+  #define BITS_PER_WORD    64
 #elif LONGSIZE >= 8
   /* Should we be doing this? */
   typedef unsigned long WTYPE
   #define W_CONST(c)  ((U64TYPE)x##UL)
   #define WTYPE_IS_64BIT   1
+  #define BITS_PER_WORD    64
 #else
   typedef U32TYPE WTYPE;
   #define W_CONST(c)  U32_CONST(c)
   #define WTYPE_IS_64BIT   0
+  #define BITS_PER_WORD    32
 #endif
 
 #define W_ZERO      W_CONST(0)
 #define W_ONE       W_CONST(1)
 #define W_FFFF      W_CONST(~0)
 
-#define BITS_PER_WORD (8 * sizeof(WTYPE))
 #define MAXBIT        (BITS_PER_WORD-1)
 #define NWORDS(bits)  ( ((bits)+BITS_PER_WORD-1) / BITS_PER_WORD )
 #define NBYTES(bits)  ( ((bits)+8-1) / 8 )
