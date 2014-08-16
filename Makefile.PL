@@ -12,15 +12,28 @@ WriteMakefile1(
     INC          => '',     # e.g., '-I/usr/include/other'
     OBJECT       => 'bitlist.o sequences.o XS.o',
 
+    TEST_REQUIRES => {
+                     'Test::More'       => '0.45',
+                     },
     PREREQ_PM    => {
-                      'Test::More'       => '0.45',
                       'Exporter'         => '5.562',
                       'XSLoader'         => '0.01',
                       'Carp'             => 0,
                     },
-    META_MERGE   => {
-                      recommends => { 'Data::BitStream' => 0, },
+    META_MERGE => {
+                    resources  => {
+                      license    => [ 'http://dev.perl.org/licenses/' ],
+                      homepage   => 'https://github.com/danaj/BitStreamXS',
+                      repository => {
+                        url  => 'https://github.com/danaj/BitStreamXS',
+                      },
                     },
+                    prereqs => {
+                      runtime => {
+                        recommends => { 'Data::BitStream' => 0.08, },
+                      },
+                    },
+                  },
 
     MIN_PERL_VERSION => 5.006002,
 );
@@ -30,6 +43,10 @@ sub WriteMakefile1 {
   my $eumm_version = $ExtUtils::MakeMaker::VERSION;
   $eumm_version = eval $eumm_version;
 
+  if ($params{TEST_REQUIRES} and $eumm_version < 6.6303) {
+      $params{BUILD_REQUIRES}={ %{$params{BUILD_REQUIRES} || {}} , %{$params{TEST_REQUIRES}} };
+      delete $params{TEST_REQUIRES};
+  }
   if ($params{BUILD_REQUIRES} and $eumm_version < 6.5503) {
       #EUMM 6.5502 has problems with BUILD_REQUIRES
       $params{PREREQ_PM}={ %{$params{PREREQ_PM} || {}} , %{$params{BUILD_REQUIRES}} };
