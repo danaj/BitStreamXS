@@ -10,8 +10,6 @@
 #include "bitlist.h"
 #include "sequences.h"
 
-static int verbose = 0;
-
 
 /********************  bit stack functions  ********************/
 
@@ -61,6 +59,7 @@ static void expand_list(BitList *list, int len)
 
 
 /********************  debugging  ********************/
+#if 0
 static char binstr[BITS_PER_WORD+1];
 static char* word_to_bin(WTYPE word)
 {
@@ -72,6 +71,7 @@ static char* word_to_bin(WTYPE word)
   binstr[BITS_PER_WORD] = '\0';
   return binstr;
 }
+#endif
 
 /********************  dealing with sub calls  ********************/
 
@@ -805,7 +805,7 @@ void put_unary1 (BitList *list, WTYPE value)
 
   int wpos = len / BITS_PER_WORD;
   int bpos = len % BITS_PER_WORD;
-  int first_bits = BITS_PER_WORD - bpos;
+  WTYPE first_bits = BITS_PER_WORD - bpos;
 
   expand_list(list, len+value+1);
 
@@ -821,7 +821,7 @@ void put_unary1 (BitList *list, WTYPE value)
    *   }
    */
   if (value >= BITS_PER_WORD) {
-    int nwords = value / BITS_PER_WORD;
+    WTYPE nwords = value / BITS_PER_WORD;
     memset((char*) (list->data + wpos), 0xFF, nwords * sizeof(WTYPE));
     value -= nwords * BITS_PER_WORD;
     wpos += nwords;
@@ -925,7 +925,7 @@ WTYPE get_omega (BitList *list)
       croak("code error: Omega overflow");
       return W_ZERO;
     }
-    if ( (list->pos + (v+1)) > list->len ) {
+    if ( (list->pos + (v+1)) > (WTYPE)list->len ) {
       list->pos = pos;  /* restore position */
       croak("read off end of stream");
       return W_ZERO;
@@ -1064,8 +1064,9 @@ static WTYPE fibm_sum[MAX_FIBGEN_M-1][MAXFIB] = { {0} };
 static int   fibm_max[MAX_FIBGEN_M-1] = {0};
 static void _calc_fibm(int m)
 {
+  WTYPE* fv, *fs;
   assert( (m >= 2) && (m <= MAX_FIBGEN_M) );
-  WTYPE* fv = &(fibm_val[m-2][0]);
+  fv = &(fibm_val[m-2][0]);
 
   if (fv[0] == 0) {
     int i,j;
@@ -1083,7 +1084,7 @@ static void _calc_fibm(int m)
     }
     assert(fibm_max[m-2] > 0);
     /* calculate sums */
-    WTYPE* fs = &(fibm_sum[m-2][0]);
+    fs = &(fibm_sum[m-2][0]);
     fs[0] = fv[0];
     for (i = 1; i <= fibm_max[m-2]; i++) {
       WTYPE sum = fs[i-1] + fv[i];
@@ -1095,12 +1096,12 @@ static void _calc_fibm(int m)
 
 WTYPE get_fibgen (BitList *list, int m)
 {
-  int s;
-  WTYPE code, term, v;
-  WTYPE* fv = &(fibm_val[m-2][0]);
-  WTYPE* fs = &(fibm_sum[m-2][0]);
-  int fmax = fibm_max[m-2];
-  int pos = list->pos;
+  int s, fmax, pos;
+  WTYPE code, term, v, *fv, *fs;
+  fv = &(fibm_val[m-2][0]);
+  fs = &(fibm_sum[m-2][0]);
+  fmax = fibm_max[m-2];
+  pos = list->pos;
 
   assert( list->pos < list->len );
   _calc_fibm(m);
@@ -1203,7 +1204,7 @@ WTYPE get_levenstein (BitList *list)
   C = get_unary1(list);
   v = 0;
   if (C > 0) {
-    int i;
+    WTYPE i;
     v = 1;
     for (i = 1; i < C; i++) {
       if (v > BITS_PER_WORD) {
@@ -1211,7 +1212,7 @@ WTYPE get_levenstein (BitList *list)
         croak("code error: Levenstein overflow");
         return W_ZERO;
       }
-      if ( (list->pos + v) > list->len ) {
+      if ( (list->pos + v) > (WTYPE)list->len ) {
         list->pos = pos;  /* restore position */
         croak("read off end of stream");
         return W_ZERO;
@@ -1265,7 +1266,7 @@ WTYPE get_evenrodeh (BitList *list)
         croak("code error: Even-Rodeh overflow");
         return W_ZERO;
       }
-      if ( (list->pos + v) > list->len ) {
+      if ( (list->pos + v) > (WTYPE)list->len ) {
         list->pos = pos;  /* restore position */
         croak("read off end of stream");
         return W_ZERO;
@@ -1430,8 +1431,7 @@ void  put_binword (BitList *list, int k, WTYPE value)
 
 WTYPE get_baer (BitList *list, int k)
 {
-  int mk;
-  WTYPE C, v;
+  WTYPE mk, C, v;
 
   assert(k >= -32);
   assert(k <= 32);
@@ -1453,8 +1453,7 @@ WTYPE get_baer (BitList *list, int k)
 }
 void  put_baer (BitList *list, int k, WTYPE value)
 {
-  int mk;
-  WTYPE C, v, postword;
+  WTYPE mk, C, v, postword;
 
   assert(k >= -32);
   assert(k <= 32);
@@ -1531,8 +1530,8 @@ static void bv_make_param_map(int k)
 WTYPE get_boldivigna (BitList *list, int k)
 {
   bvzeta_map* bvm;
-  int maxh, s;
-  WTYPE h, t, first, v;
+  int s;
+  WTYPE h, maxh, t, first, v;
 
   assert(k >= 1);
   assert(k <= 15);  /* You should use Delta codes for anything over 6. */

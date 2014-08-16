@@ -1,6 +1,6 @@
 Revision history for Perl extension Data::BitStream::XS.
 
-0.08    ??
+0.08    16 August 2014
   - Switch to New/Safefree from malloc/free.
   - Removed unused primality functions.  No more primes(), for example.
     See the Math::Prime::Util module for these functions.
