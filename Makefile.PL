@@ -21,19 +21,25 @@ WriteMakefile1(
                       'Carp'             => 0,
                     },
     META_MERGE => {
-                    resources  => {
-                      license    => [ 'http://dev.perl.org/licenses/' ],
-                      homepage   => 'https://github.com/danaj/BitStreamXS',
-                      repository => {
-                        url  => 'https://github.com/danaj/BitStreamXS',
-                      },
-                    },
-                    prereqs => {
-                      runtime => {
-                        recommends => { 'Data::BitStream' => 0.08, },
-                      },
-                    },
-                  },
+               'meta-spec'  => {
+                  version => '2',
+                  url     => 'http://search.cpan.org/perldoc?CPAN::Meta::Spec',
+               },
+               resources  => {
+                 license    => [ 'http://dev.perl.org/licenses/' ],
+                 homepage   => 'https://github.com/danaj/BitStreamXS',
+                 repository => {
+                   url  => 'https://github.com/danaj/BitStreamXS',
+                 },
+               },
+               prereqs => {
+                 runtime => {
+                   recommends => {
+                     'Data::BitStream' => 0.08,
+                   },
+                 },
+               },
+             },
 
     MIN_PERL_VERSION => 5.006002,
 );
